@@ -1,6 +1,6 @@
 # Playtime Tracker for Wayland KDE
 
-![Image](https://i.imgur.com/4gQrikS.png)
+<img src="https://i.imgur.com/4gQrikS.png" alt="Alt text" width="70%"/>
 
 This tool tracks game window focus time and displays playtime statistics using a lightweight server and a playtime logger script.
 
@@ -86,3 +86,4 @@ This will start a web server at `http://localhost:8000`.
 - **Server**: The Python server must remain running to view the stats.
 
 ---
+disclaimer: 90% of this was done by chatgpt
