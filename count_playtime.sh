@@ -9,7 +9,7 @@
 GAME_WINDOW="Dies irae ～Acta est Fabula～ HD"
 
 # Log file to track playtime
-LOG_FILE="$HOME/Desktop/playtimetracker/log/game_playtime_$GAME_WINDOW.log"
+LOG_FILE="log/game_playtime_$GAME_WINDOW.log"
 
 # Check if log file exists, if not, create it with column headers
 if [ ! -f "$LOG_FILE" ]; then
