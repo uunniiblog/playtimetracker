@@ -1,5 +1,7 @@
 # Playtime Tracker for Wayland KDE
 
+![Image](https://i.imgur.com/4gQrikS.png)
+
 This tool tracks game window focus time and displays playtime statistics using a lightweight server and a playtime logger script.
 
 This should work in any environment where kdotool does.
