@@ -8,8 +8,11 @@
 #GAME_WINDOW="ムーン・ゴースト"
 GAME_WINDOW="Dies irae ～Acta est Fabula～ HD"
 
+# Get the absolute path of the directory where the script is located
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
+
 # Log file to track playtime
-LOG_FILE="log/game_playtime_$GAME_WINDOW.log"
+LOG_FILE="$SCRIPT_DIR/log/game_playtime_$GAME_WINDOW.log"
 
 # Check if log file exists, if not, create it with column headers
 if [ ! -f "$LOG_FILE" ]; then
@@ -18,7 +21,7 @@ fi
 
 is_game_focused() {
     local game_window_id
-    game_window_id=$(kdotool search --name "$GAME_WINDOW")
+    game_window_id=$(kdotool search --name "^$GAME_WINDOW\$")
     if [ -z "$game_window_id" ]; then
         return 1  # No game window found
     fi
@@ -27,18 +30,13 @@ is_game_focused() {
     # Trim any whitespace
     game_window_id=$(echo "$game_window_id" | xargs)
     active_window_id=$(echo "$active_window_id" | xargs)
+
     if [ "$game_window_id" == "$active_window_id" ]; then
         return 0  # Game window is focused
     else
         return 1  # Game window is not focused
     fi
 }
-
-# Function to convert seconds to HH:MM:SS format
-#format_time() {
-#    local total_seconds=$1
-#    printf '%02d:%02d:%02d\n' $((total_seconds/3600)) $((total_seconds%3600/60)) $((total_seconds%60))
-#}
 
 format_time() {
     local total_seconds=$1
@@ -127,4 +125,3 @@ while true; do
     # Check every second
     sleep 1
 done
-
