@@ -1,0 +1,9 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Name=Time Tracker
+Comment=Track playtime for your apps
+Exec=/usr/bin/python3 /home/uni/Documents/playtimetracker_gui/time_tracker_gui.py
+Icon=utilities-system-monitor
+Terminal=false
+Type=Application
+Categories=Utility;

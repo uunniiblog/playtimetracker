@@ -4,12 +4,17 @@
 # Modify LOG_FILE to the path and name you want
 
 
-# Name of the window title to monitor
-#GAME_WINDOW="ムーン・ゴースト"
-GAME_WINDOW="Dies irae ～Acta est Fabula～ HD"
+# Check if GAME_WINDOW argument is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <GAME_WINDOW>"
+    exit 1
+fi
 
-# Get the absolute path of the directory where the script is located
-SCRIPT_DIR=$(dirname "$(realpath "$0")")
+# Get GAME_WINDOW from the first argument
+GAME_WINDOW="$1"
+
+# Get the script directory (second argument)
+SCRIPT_DIR="$2"
 
 # Log file to track playtime
 LOG_FILE="$SCRIPT_DIR/log/game_playtime_$GAME_WINDOW.log"
