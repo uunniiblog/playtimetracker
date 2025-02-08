@@ -14,6 +14,10 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib import rcParams
+from PyQt6.QtWidgets import QTextEdit
+import matplotlib.font_manager as fm
+import warnings
+import matplotlib.font_manager as fm
 
 class WindowListRefresher(QThread):
     update_window_list = pyqtSignal(list, dict, str)
@@ -143,6 +147,19 @@ class TimeTrackerApp(QMainWindow):
         self.app_combo = QComboBox()
         self.stats_tab_layout.addWidget(self.app_combo)
 
+        # Create refresh button and set the style (same as the existing one)
+        self.refresh_button = QPushButton()
+        self.refresh_button.setIcon(QIcon.fromTheme("view-refresh"))
+        self.refresh_button.setToolTip("Refresh Statistics")
+        self.refresh_button.setFixedSize(24, 24)
+        self.refresh_button.clicked.connect(self.refresh_stats)
+
+        # Add the refresh button next to the combo box
+        self.combo_layout = QHBoxLayout()
+        self.combo_layout.addWidget(self.app_combo)
+        self.combo_layout.addWidget(self.refresh_button)
+        self.stats_tab_layout.addLayout(self.combo_layout)
+
         self.total_time_label = QLabel("Total Playtime: 0 hours")
         self.stats_tab_layout.addWidget(self.total_time_label)
 
@@ -151,8 +168,13 @@ class TimeTrackerApp(QMainWindow):
         self.stats_tab_layout.addWidget(self.canvas)
 
         self.app_combo.currentIndexChanged.connect(self.update_graph)
-
         self.load_log_files()
+
+
+    def refresh_stats(self):
+        # Recalculate everything to show updated hours
+        self.load_log_files()  # Reload the log files
+        self.update_graph()  # Update the graph with new data
 
     def load_log_files(self):
         log_dir = Path(__file__).parent / "log"
@@ -161,12 +183,15 @@ class TimeTrackerApp(QMainWindow):
             return
 
         self.log_files = {file.stem.replace("game_playtime_", "").replace(".log", ""): file for file in log_dir.glob("game_playtime_*.log")}
+
         if not self.log_files:
             self.console_output.append("No log files found.")
             return
 
         self.app_combo.clear()
+        self.app_combo.addItem("Global")  # Global option at the top
         sorted_files = sorted(self.log_files.items(), key=lambda x: os.path.getmtime(x[1]), reverse=True)
+
         for app_name, file_path in sorted_files:
             self.app_combo.addItem(app_name)
 
@@ -178,11 +203,83 @@ class TimeTrackerApp(QMainWindow):
         app_name = self.app_combo.currentText()
         if not app_name:
             return
+
+        if app_name == "Global":
+            self.generate_global_graph()
+        else:
+            self.generate_app_graph(app_name)
+
+
+    def generate_global_graph(self):
+        total_playtimes = {}
+        max_playtime = 100  # Default max value for Y-axis
+        total_global_playtime = 0  # Variable to store sum of all playtimes
+
+        for app_name, log_file in self.log_files.items():
+            with open(log_file, 'r') as file:
+                lines = file.readlines()
+                if not lines:
+                    continue
+                last_line = lines[-1].strip().split("; ")
+                if len(last_line) >= 5:
+                    try:
+                        total_playtime = self.parse_time(last_line[4]) / 3600  # Convert to hours
+                        total_playtimes[app_name] = total_playtime
+                        max_playtime = max(max_playtime, total_playtime)
+                        total_global_playtime += total_playtime
+                    except ValueError:
+                        continue
+
+        self.total_time_label.setText(f"Total Playtime: {total_global_playtime:.2f} hours")
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+
+        # 🔹 Define a list of fallback fonts (first available one will be used)
+        fallback_fonts = ["Noto Serif CJK JP", "Noto Sans CJK JP", "IPAPMincho", "TakaoPGothic", "Yu Gothic", "Arial Unicode MS"]
+        available_fonts = set(f.name for f in fm.fontManager.ttflist)
+        selected_font = next((font for font in fallback_fonts if font in available_fonts), None)
+
+        if selected_font:
+            plt.rcParams["font.family"] = selected_font
+            plt.rcParams["font.sans-serif"] = selected_font
+
+        if total_playtimes:
+            apps = list(total_playtimes.keys())
+            playtimes = list(total_playtimes.values())
+
+            ax.bar(apps, playtimes, color="skyblue")
+            ax.set_xlabel("Game")
+            ax.set_ylabel("Total Playtime (hours)")
+            ax.set_ylim(0, max(100, max_playtime))  # Set Y-axis from 0 to 100 or max value
+
+            # 🔹 Rotate X-axis labels for better readability
+            ax.set_xticklabels(apps, rotation=30, ha="right", fontsize=10,
+                            fontname=selected_font if selected_font else "sans-serif")
+
+            # 🔹 Adjust bottom padding to avoid cutting game names
+            plt.subplots_adjust(bottom=0.40)  # Increase padding at the bottom
+
+            # 🔹 Resize dynamically based on number of entries (with more height)
+            if len(apps) > 10:
+                self.figure.set_size_inches(len(apps) * 0.5, 7)
+            else:
+                self.figure.set_size_inches(max(6, len(apps) * 0.5), 7)
+
+        else:
+            ax.text(0.5, 0.5, "No valid data to display", transform=ax.transAxes,
+                    ha="center", va="center", fontsize=12, color="red")
+
+        self.canvas.draw()
+
+
+    def generate_app_graph(self, app_name):
         log_file = self.log_files.get(app_name)
         if not log_file:
             return
+
         daily_playtime = {}
         total_playtime = 0
+
         with open(log_file, 'r') as file:
             for line in file:
                 columns = line.strip().split("; ")
@@ -199,14 +296,13 @@ class TimeTrackerApp(QMainWindow):
                         continue
 
         self.total_time_label.setText(f"Total Playtime: {total_playtime:.2f} hours")
-
         self.figure.clear()
         ax = self.figure.add_subplot(111)
+
         if daily_playtime:
             days = list(daily_playtime.keys())
             hours = list(daily_playtime.values())
             ax.bar(days, hours, color="skyblue")
-            #ax.set_title(f"Daily Playtime for {app_name}") # TODO: fix japanese rendering
             ax.set_xlabel("Date")
             ax.set_ylabel("Playtime (hours)")
             ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %d, %Y"))
