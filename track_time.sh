@@ -12,6 +12,7 @@ fi
 
 # Get GAME_WINDOW from the first argument
 GAME_WINDOW="$1"
+target_game_window_id=$(kdotool search --name "$GAME_WINDOW")
 
 # Get the script directory (second argument)
 SCRIPT_DIR="$2"
@@ -19,22 +20,25 @@ SCRIPT_DIR="$2"
 # Log file to track playtime
 LOG_FILE="$SCRIPT_DIR/log/game_playtime_$GAME_WINDOW.log"
 
+# Target game window Id
+
 # Check if log file exists, if not, create it with column headers
 if [ ! -f "$LOG_FILE" ]; then
     echo "Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime" > "$LOG_FILE"
 fi
 
 is_game_focused() {
-    local game_window_id
-    game_window_id=$(kdotool search --name "^$GAME_WINDOW\$")
-    if [ -z "$game_window_id" ]; then
+    if [ -z "$target_game_window_id" ]; then
         return 1  # No game window found
     fi
     local active_window_id
     active_window_id=$(kdotool getactivewindow)
     # Trim any whitespace
-    game_window_id=$(echo "$game_window_id" | xargs)
+    game_window_id=$(echo "$target_game_window_id" | xargs)
     active_window_id=$(echo "$active_window_id" | xargs)
+
+    #echo "game_window_id: $game_window_id"
+    #echo "active_window_id: $active_window_id"
 
     if [ "$game_window_id" == "$active_window_id" ]; then
         return 0  # Game window is focused
