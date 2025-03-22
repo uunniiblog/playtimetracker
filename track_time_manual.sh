@@ -5,8 +5,8 @@
 
 
 # Name of the window title to monitor
-#GAME_WINDOW="ムーン・ゴースト"
 GAME_WINDOW="Dies irae ～Acta est Fabula～ HD"
+target_game_window_id=$(kdotool search --name "$GAME_WINDOW")
 
 # Get the absolute path of the directory where the script is located
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
@@ -20,16 +20,17 @@ if [ ! -f "$LOG_FILE" ]; then
 fi
 
 is_game_focused() {
-    local game_window_id
-    game_window_id=$(kdotool search --name "^$GAME_WINDOW\$")
-    if [ -z "$game_window_id" ]; then
+    if [ -z "$target_game_window_id" ]; then
         return 1  # No game window found
     fi
     local active_window_id
     active_window_id=$(kdotool getactivewindow)
     # Trim any whitespace
-    game_window_id=$(echo "$game_window_id" | xargs)
+    game_window_id=$(echo "$target_game_window_id" | xargs)
     active_window_id=$(echo "$active_window_id" | xargs)
+
+    #echo "game_window_id: $game_window_id"
+    #echo "active_window_id: $active_window_id"
 
     if [ "$game_window_id" == "$active_window_id" ]; then
         return 0  # Game window is focused

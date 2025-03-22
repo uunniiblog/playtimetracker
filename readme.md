@@ -14,7 +14,7 @@ This should work in any environment where kdotool does.
 
 Ensure the following tools are installed on your system:
 
-- **Python 3** (to run the web server)
+- **Python 3.6+**
 - **kdotool** (to track window focus): [kdotool GitHub repository](https://github.com/jinliu/kdotool)
 - **PyQt6** (to run the GUI application)
 
@@ -25,36 +25,24 @@ Ensure the following tools are installed on your system:
 ```bash
 python time_tracker_gui.py 
 ```
-
-or Run it from the TimeTracker.desktop directly
-
-## 3. Viewing Playtime Statistics
-
-### Step 1: Start the Local Web Server
-
-Run the following Python 3 command to serve the HTML file:
+   
+For a shortcut you can make a .desktop file with the icon you want:
 
 ```bash
-cd /path/to/your/html/file
-python3 -m http.server 8000
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Name=Time Tracker
+Comment=Track playtime for your apps
+Exec=/usr/bin/python3 /home/user/Documents/playtimetracker_gui/time_tracker_gui.py
+Icon=utilities-system-monitor
+Terminal=false
+Type=Application
+Categories=Utility;
 ```
 
-This will start a web server at `http://localhost:8000`.
-
-### Step 2: Open the website
-
-1. Open a web browser (Firefox, Chrome, etc.).
-2. Navigate to:
-   ```
-   http://localhost:8000
-   ```
-3. The application will automatically load all `.log` files from the configured `log` directory and display:
-   - A list of applications (based on log filenames).
-   - A bar graph showing daily playtime statistics.
-   - Total playtime and session efficiency details.
+and place it in: ~/.local/share/applications/ (KDE) to get a shortcut in the application launcher
    
-   
-## 4. (Optional) Manually run the script
+## 3. (Optional) Manually run the script
 If you want to use the script from a terminal directly instead of the GUI application.
 
 ### Step 1: Update the Script
@@ -74,9 +62,6 @@ for window_id in $(kdotool search --name .); do kdotool getwindowname $window_id
 
 Look for the title of the game window and update `GAME_WINDOW` in the script.
 
----
-
-
 ### Step 2: Start the Playtime Tracker Script
 
 Run the `track_time_manual.sh` script:
@@ -91,11 +76,9 @@ Run the `track_time_manual.sh` script:
 
 ---
 
-## 5. Notes
+## 4. Notes
 
-- **Log Files**: Log files are stored as `game_playtime_<GameName>.log` in the `log` folder.
-- **Server**: The Python server must remain running to view the stats.
-- The icon doesn't work.
+- **Log Files**: Log files are stored as `game_playtime_<GameName>.log` in the `log` folder if wanted to be seen manually.
+
 
 ---
-disclaimer: 90% of this was done by chatgpt

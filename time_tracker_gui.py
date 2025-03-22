@@ -3,9 +3,9 @@ import subprocess
 import psutil
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
-    QComboBox, QPushButton, QTextEdit, QWidget, QTabWidget, QLabel
+    QComboBox, QPushButton, QTextEdit, QWidget, QTabWidget, QLabel, QCheckBox
 )
-from PyQt6.QtCore import QProcess, QThread, pyqtSignal
+from PyQt6.QtCore import QProcess, QThread
 from PyQt6.QtGui import QIcon
 from pathlib import Path
 import os
@@ -19,72 +19,11 @@ import matplotlib.font_manager as fm
 import warnings
 import matplotlib.font_manager as fm
 
-class WindowListRefresher(QThread):
-    update_window_list = pyqtSignal(list, dict, str)
-
-    def run(self):
-        try:
-            window_titles = []
-            try:
-                result = subprocess.check_output(["kdotool", "search", "--name", "."], text=True).strip()
-                window_ids = result.split("\n") if result else []
-                for window_id in window_ids:
-                    title = subprocess.check_output(["kdotool", "getwindowname", window_id], text=True).strip()
-                    window_titles.append((window_id, title))
-            except subprocess.CalledProcessError as e:
-                self.update_window_list.emit([], {}, f"Error using kdotool: {e}")
-                return
-
-            app_icons = {}
-            for proc in psutil.process_iter(attrs=["pid", "name"]):
-                try:
-                    process_name = proc.info["name"]
-                    desktop_file = self.find_desktop_file(process_name)
-                    if desktop_file and process_name not in app_icons:
-                        app_icons[process_name] = self.get_icon_from_desktop_file(desktop_file) or QIcon.fromTheme("application-default-icon")
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-
-            self.update_window_list.emit(window_titles, app_icons, "Application list refreshed.")
-        except Exception as e:
-            self.update_window_list.emit([], {}, f"Error refreshing application list: {e}")
-
-    def find_desktop_file(self, process_name):
-        desktop_dirs = [
-            "/usr/share/applications",
-            str(Path.home() / ".local/share/applications"),
-        ]
-        for directory in desktop_dirs:
-            if not os.path.isdir(directory):
-                continue
-            for file in os.listdir(directory):
-                if file.endswith(".desktop"):
-                    with open(os.path.join(directory, file), 'r') as f:
-                        content = f.read()
-                        if f"Exec={process_name}" in content or f"Name={process_name}" in content:
-                            return os.path.join(directory, file)
-        return None
-
-    def get_icon_from_desktop_file(self, desktop_file):
-        try:
-            with open(desktop_file, 'r') as f:
-                for line in f:
-                    if line.startswith("Icon="):
-                        icon_name = line.split("=")[1].strip()
-                        return QIcon.fromTheme(icon_name)
-        except Exception:
-            pass
-        return None
-
 class TimeTrackerApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Time Tracker")
         self.setGeometry(100, 100, 800, 600)
-
-        icon_path = Path(__file__).parent / 'icon.png'
-        app_icon = QIcon(str(icon_path)) if icon_path.is_file() else QIcon.fromTheme("application-default-icon")
-        self.setWindowIcon(app_icon)
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -107,6 +46,9 @@ class TimeTrackerApp(QMainWindow):
         self.setup_main_tab()
         self.setup_stats_tab()
 
+        self.refresh_window_list()
+
+
     def setup_main_tab(self):
         self.combo_layout = QHBoxLayout()
         self.main_tab_layout.addLayout(self.combo_layout)
@@ -120,6 +62,12 @@ class TimeTrackerApp(QMainWindow):
         self.refresh_button.setFixedSize(24, 24)
         self.refresh_button.clicked.connect(self.refresh_window_list)
         self.combo_layout.addWidget(self.refresh_button)
+
+        # Add the "Only Show Wine Processes" checkbox
+        self.only_show_wine_checkbox = QCheckBox("Only Show Wine Processes")
+        self.only_show_wine_checkbox.setChecked(False)  # Default to unchecked
+        self.only_show_wine_checkbox.stateChanged.connect(self.refresh_window_list)
+        self.main_tab_layout.addWidget(self.only_show_wine_checkbox)
 
         self.start_button = QPushButton("Start Tracking")
         self.start_button.clicked.connect(self.start_tracking)
@@ -138,27 +86,22 @@ class TimeTrackerApp(QMainWindow):
         self.process.readyReadStandardOutput.connect(self.update_console)
         self.process.readyReadStandardError.connect(self.update_console)
 
-        self.window_list_refresher = WindowListRefresher()
-        self.window_list_refresher.update_window_list.connect(self.update_window_combo)
-
-        self.refresh_window_list()
-
     def setup_stats_tab(self):
         self.app_combo = QComboBox()
         self.stats_tab_layout.addWidget(self.app_combo)
 
         # Create refresh button and set the style (same as the existing one)
-        self.refresh_button = QPushButton()
-        self.refresh_button.setIcon(QIcon.fromTheme("view-refresh"))
-        self.refresh_button.setToolTip("Refresh Statistics")
-        self.refresh_button.setFixedSize(24, 24)
-        self.refresh_button.clicked.connect(self.refresh_stats)
+        self.refresh_stats_button = QPushButton()
+        self.refresh_stats_button.setIcon(QIcon.fromTheme("view-refresh"))
+        self.refresh_stats_button.setToolTip("Refresh Statistics")
+        self.refresh_stats_button.setFixedSize(24, 24)
+        self.refresh_stats_button.clicked.connect(self.refresh_stats)
 
         # Add the refresh button next to the combo box
-        self.combo_layout = QHBoxLayout()
-        self.combo_layout.addWidget(self.app_combo)
-        self.combo_layout.addWidget(self.refresh_button)
-        self.stats_tab_layout.addLayout(self.combo_layout)
+        stats_combo_layout = QHBoxLayout()
+        stats_combo_layout.addWidget(self.app_combo)
+        stats_combo_layout.addWidget(self.refresh_stats_button)
+        self.stats_tab_layout.addLayout(stats_combo_layout)
 
         self.total_time_label = QLabel("Total Playtime: 0 hours")
         self.stats_tab_layout.addWidget(self.total_time_label)
@@ -170,6 +113,124 @@ class TimeTrackerApp(QMainWindow):
         self.app_combo.currentIndexChanged.connect(self.update_graph)
         self.load_log_files()
 
+
+    """Check if the process is running under Wine or Proton based on the PID."""
+    def is_wine_or_proton(self, pid):
+        try:
+            # Read the command line of the process (works for gamescope but not normal, still good for logging the process name)
+            #cmdline_result = subprocess.check_output(f"cat /proc/{pid}/cmdline", shell=True, text=True)
+
+            # Log the application being processed
+            #log_message = f"Processing PID {pid}, cmdline: {cmdline_result.strip()}"
+            #self.console_output.append(log_message)
+
+            # Check the environment variables for the process (works for both normal and gamescope)
+            env_result = subprocess.check_output(f"cat /proc/{pid}/environ", shell=True, text=True)
+
+            #log_message = f"Processing PID {pid}, env: {env_result}"
+            #self.console_output.append(log_message)  # Display in the console output
+
+            # Check if the process is running under Wine or Proton
+            is_wine = "WINEPREFIX" in env_result
+            is_proton = "STEAM_COMPAT_DATA_PATH" in env_result or "PROTON_HOME" in env_result
+
+            result = is_wine or is_proton
+
+            # Log the detection result
+            #result_message = f"PID {pid} - Wine: {is_wine}, Proton: {is_proton}"
+            #self.console_output.append(result_message)  # Display in the console output
+
+            return result
+        except Exception as e:
+            # If there's an error, log it and return False
+            cmdline_result = subprocess.check_output(f"cat /proc/{pid}/cmdline", shell=True, text=True)
+            error_message = f"Error checking PID {pid}, cmdline: {cmdline_result.strip()} : {e}"
+            self.console_output.append(error_message)  # Display in the console output
+            return False
+
+    def refresh_window_list_sync(self, only_show_wine=False):
+        try:
+            window_titles = []
+            try:
+                result = subprocess.check_output(["kdotool", "search", "--name", "."], text=True).strip()
+                window_ids = result.split("\n") if result else []
+                for window_id in window_ids:
+                    title = subprocess.check_output(["kdotool", "getwindowname", window_id], text=True).strip()
+                    # Get the process ID associated with the window
+                    pid_result = subprocess.check_output(["kdotool", "getwindowpid", window_id], text=True).strip()
+                    pid = int(pid_result) if pid_result else None
+                    is_wine = False
+                    if pid:
+                        # Check if the application is running under Wine or Proton
+                        is_wine = self.is_wine_or_proton(pid)
+
+
+                    # Only add to the list if checkbox is checked and it's a Wine process or if it's unchecked (add all)
+                    if only_show_wine and is_wine:
+                        window_titles.append((window_id, title, is_wine))
+                    elif not only_show_wine:
+                        window_titles.append((window_id, title, is_wine))
+
+            except subprocess.CalledProcessError as e:
+                return [], {}, f"Error using kdotool: {e}"
+
+            return window_titles, {}, "Application list refreshed."
+        except Exception as e:
+            return [], {}, f"Error refreshing application list: {e}"
+
+    def refresh_window_list(self):
+        self.console_output.append("Refreshing application list...")
+        self.refresh_button.setEnabled(False)
+        self.previous_selection = self.window_combo.currentText()
+
+        # Check if the checkbox is checked
+        only_show_wine = self.only_show_wine_checkbox.isChecked()
+
+        window_titles, app_icons, message = self.refresh_window_list_sync(only_show_wine)
+        self._update_window_combo(window_titles, app_icons, message)
+        self.refresh_button.setEnabled(True)
+
+    def _update_window_combo(self, window_titles, app_icons, message):
+        self.window_combo.clear()
+        selected_index = 0
+        for index, (window_id, title, _) in enumerate(window_titles):
+            self.window_combo.addItem(title)
+            if title == self.previous_selection:
+                selected_index = index
+        self.window_combo.setCurrentIndex(selected_index)
+        self.console_output.append(message)
+
+    def start_tracking(self):
+        selected_app = self.window_combo.currentText()
+        if not selected_app:
+            self.console_output.append("No application selected!")
+            return
+
+        self.console_output.append(f"Starting tracking for: {selected_app}")
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        track_time_script = os.path.join(script_dir, "track_time.sh")
+        self.process.start("bash", [track_time_script, selected_app, script_dir])
+        self.start_button.setEnabled(False)
+        self.stop_button.setEnabled(True)
+
+    def stop_tracking(self):
+        if self.process.state() == QProcess.ProcessState.Running:
+            self.console_output.append("Stopping tracking...")
+            self.process.terminate()
+            self.process.waitForFinished()
+            self.console_output.append("Tracking stopped.")
+        else:
+            self.console_output.append("No tracking process is running.")
+        self.start_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+
+    def update_console(self):
+        output = self.process.readAllStandardOutput().data().decode()
+        error = self.process.readAllStandardError().data().decode()
+        if output:
+            self.console_output.append(output.strip())
+        if error:
+            self.console_output.append(f"ERROR: {error.strip()}")
 
     def refresh_stats(self):
         # Recalculate everything to show updated hours
@@ -254,7 +315,7 @@ class TimeTrackerApp(QMainWindow):
 
             # 🔹 Rotate X-axis labels for better readability
             ax.set_xticklabels(apps, rotation=30, ha="right", fontsize=10,
-                            fontname=selected_font if selected_font else "sans-serif")
+                               fontname=selected_font if selected_font else "sans-serif")
 
             # 🔹 Adjust bottom padding to avoid cutting game names
             plt.subplots_adjust(bottom=0.40)  # Increase padding at the bottom
@@ -316,60 +377,6 @@ class TimeTrackerApp(QMainWindow):
     def parse_time(self, time_str):
         time_parts = list(map(int, time_str.split(":")))
         return sum(x * 60 ** i for i, x in enumerate(reversed(time_parts)))
-
-    def refresh_window_list(self):
-        self.console_output.append("Refreshing application list...")
-        self.refresh_button.setEnabled(False)
-        self.previous_selection = self.window_combo.currentText()
-        self.window_list_refresher.start()
-
-    def update_window_combo(self, window_titles, app_icons, message):
-        self.window_combo.clear()
-        selected_index = 0
-        for index, (window_id, title) in enumerate(window_titles):
-            icon = QIcon.fromTheme("application-default-icon")
-            for process_name, app_icon in app_icons.items():
-                if process_name.lower() in title.lower():
-                    icon = app_icon
-                    break
-            self.window_combo.addItem(icon, title)
-            if title == self.previous_selection:
-                selected_index = index
-        self.window_combo.setCurrentIndex(selected_index)
-        self.console_output.append(message)
-        self.refresh_button.setEnabled(True)
-
-    def start_tracking(self):
-        selected_app = self.window_combo.currentText()
-        if not selected_app:
-            self.console_output.append("No application selected!")
-            return
-
-        self.console_output.append(f"Starting tracking for: {selected_app}")
-        script_dir = os.path.dirname(os.path.realpath(__file__))
-        track_time_script = os.path.join(script_dir, "track_time.sh")
-        self.process.start("bash", [track_time_script, selected_app, script_dir])
-        self.start_button.setEnabled(False)
-        self.stop_button.setEnabled(True)
-
-    def stop_tracking(self):
-        if self.process.state() == QProcess.ProcessState.Running:
-            self.console_output.append("Stopping tracking...")
-            self.process.terminate()
-            self.process.waitForFinished()
-            self.console_output.append("Tracking stopped.")
-        else:
-            self.console_output.append("No tracking process is running.")
-        self.start_button.setEnabled(True)
-        self.stop_button.setEnabled(False)
-
-    def update_console(self):
-        output = self.process.readAllStandardOutput().data().decode()
-        error = self.process.readAllStandardError().data().decode()
-        if output:
-            self.console_output.append(output.strip())
-        if error:
-            self.console_output.append(f"ERROR: {error.strip()}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
