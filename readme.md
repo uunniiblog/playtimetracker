@@ -72,13 +72,12 @@ Run the `track_time_manual.sh` script:
 - The script will monitor the window focus and log playtime into the specified `.log` file.
 - Press `Ctrl+C` to stop tracking. A session summary will be appended to the log file.
 
----
 
 ---
 
 ## 4. Notes
 
 - **Log Files**: Log files are stored as `game_playtime_<GameName>.log` in the `log` folder if wanted to be seen manually.
-
+- **Notes files** Notes are stored as `notes_<GameName>.txt` in the `notes` folder. It requires a game to have been tracked before to make a note.
 
 ---

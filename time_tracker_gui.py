@@ -43,8 +43,14 @@ class TimeTrackerApp(QMainWindow):
         self.stats_tab.setLayout(self.stats_tab_layout)
         self.tab_widget.addTab(self.stats_tab, "Statistics")
 
+        self.notes_tab = QWidget()
+        self.notes_tab_layout = QVBoxLayout()
+        self.notes_tab.setLayout(self.notes_tab_layout)
+        self.tab_widget.addTab(self.notes_tab, "Notes")
+
         self.setup_main_tab()
         self.setup_stats_tab()
+        self.setup_notes_tab()
 
         self.refresh_window_list()
 
@@ -113,6 +119,39 @@ class TimeTrackerApp(QMainWindow):
         self.app_combo.currentIndexChanged.connect(self.update_graph)
         self.load_log_files()
 
+    def setup_notes_tab(self):
+        self.notes_combo = QComboBox()
+        self.notes_tab_layout.addWidget(self.notes_combo)
+
+        # Create refresh button and set the style (same as the existing one)
+        self.refresh_notes_button = QPushButton()
+        self.refresh_notes_button.setIcon(QIcon.fromTheme("view-refresh"))
+        self.refresh_notes_button.setToolTip("Refresh Statistics")
+        self.refresh_notes_button.setFixedSize(24, 24)
+        self.refresh_notes_button.clicked.connect(self.refresh_notes)
+
+        # Add the refresh button next to the combo box
+        notes_combo_layout = QHBoxLayout()
+        notes_combo_layout.addWidget(self.notes_combo)
+        notes_combo_layout.addWidget(self.refresh_notes_button)
+        self.notes_tab_layout.addLayout(notes_combo_layout)
+
+        # Text field to show Notes
+        self.notes_output = QTextEdit()
+        self.notes_output.setReadOnly(False)
+        self.notes_tab_layout.addWidget(self.notes_output)
+
+        # Save button
+        self.save_note_button = QPushButton("Save Note")
+        self.save_note_button.clicked.connect(self.save_note)
+        self.notes_tab_layout.addWidget(self.save_note_button)
+
+        # Status label for "Note saved" message
+        self.note_status_label = QLabel("")
+        self.notes_tab_layout.addWidget(self.note_status_label)
+
+        self.notes_combo.currentIndexChanged.connect(self.update_notes)
+        self.load_notes_files_combo()
 
     """Check if the process is running under Wine or Proton based on the PID."""
     def is_wine_or_proton(self, pid):
@@ -270,6 +309,64 @@ class TimeTrackerApp(QMainWindow):
         else:
             self.generate_app_graph(app_name)
 
+    def refresh_notes(self):
+        self.load_notes_files_combo()
+        self.note_status_label.setText("")
+
+    def load_notes_files_combo(self):
+        # Get list of apps from log folder first
+        # Then create or update in notes folder .txt for each app
+        log_dir = Path(__file__).parent / "log"
+        if not log_dir.exists():
+            self.console_output.append("Log directory not found.")
+            return
+        self.log_files = {file.stem.replace("game_playtime_", "").replace(".log", ""): file for file in log_dir.glob("game_playtime_*.log")}
+        if not self.log_files:
+            self.console_output.append("No app with logs found.")
+            return
+
+        self.notes_combo.clear()
+
+        # Sort by last tracked
+        sorted_files = sorted(self.log_files.items(), key=lambda x: os.path.getmtime(x[1]), reverse=True)
+        for app_name, file_path in sorted_files:
+            self.notes_combo.addItem(app_name)
+
+        if sorted_files:
+            self.notes_combo.setCurrentIndex(0)
+            self.update_notes()
+
+    def update_notes(self):
+        notes_dir = Path(__file__).parent / "notes"
+        if not notes_dir.exists():
+            self.notes_output.append("Notes directory not found.")
+            return
+
+        # Search if notes file for game exist already
+        self.notes_files = {file.stem.replace("notes_", "").replace(".txt", ""): file for file in notes_dir.glob("notes_*.txt")}
+        app_combo = self.notes_combo.currentText()
+        note_found = False
+        for app_note, file_path in self.notes_files.items():
+            if app_combo.strip() == app_note.strip():
+                #self.console_output.append("note found in disk")
+                note_found = True
+                with file_path.open("r", encoding="utf-8") as f:
+                    self.notes_output.setPlainText(f.read())  # Append file content to notes_output
+                break
+
+        if not note_found:
+            self.notes_output.clear()
+
+    def save_note(self):
+        notes_dir = Path(__file__).parent / "notes"
+        app_name = self.notes_combo.currentText().strip()
+        note_file = notes_dir / f"notes_{app_name}.txt"
+        with note_file.open("w", encoding="utf-8") as f:
+            # Save all text from notes_output
+            f.write(self.notes_output.toPlainText())
+
+        # Show message saved
+        self.note_status_label.setText(f"Note saved for {app_name}.")
 
     def generate_global_graph(self):
         total_playtimes = {}
