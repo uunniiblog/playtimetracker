@@ -263,6 +263,17 @@ class TimeTrackerApp(QMainWindow):
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
 
+    def closeEvent(self, event):
+        """Handle cleanup when the window is closed."""
+        print("Closing event triggered")
+        if self.process.state() == QProcess.ProcessState.Running:
+            print("Stopping tracking before exit...")
+            self.process.terminate()
+            self.process.waitForFinished()
+            print("Tracking stopped.")
+
+        event.accept()  # Accept the close event to proceed with closing
+
     def update_console(self):
         output = self.process.readAllStandardOutput().data().decode()
         error = self.process.readAllStandardError().data().decode()

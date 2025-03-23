@@ -2,7 +2,7 @@
 
 <img src="https://i.imgur.com/sojbcqP.png" alt="Alt text" width="70%"/>
 
-<img src="https://i.imgur.com/4gQrikS.png" alt="Alt text" width="70%"/>
+<img src="https://i.imgur.com/W3ixYMF.png" alt="Alt text" width="70%"/>
 
 This tool tracks game window focus time and displays playtime statistics using a lightweight server and a playtime logger script.
 
