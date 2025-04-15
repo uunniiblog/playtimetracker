@@ -3,29 +3,9 @@
 # Modify GAME_WINDOW -> It should be the Title bar name, can get the name of all current windows with this command with kdotool: for window_id in $(kdotool search --name .); do kdotool getwindowname $window_id; done
 # Modify LOG_FILE to the path and name you want
 
-
-# Check if GAME_WINDOW argument is provided
-if [ -z "$1" ]; then
-    echo "Usage: $0 <GAME_WINDOW>"
-    exit 1
-fi
-
-# Get GAME_WINDOW from the first argument
-GAME_WINDOW="$1"
-target_game_window_id=$(kdotool search --name "$GAME_WINDOW")
-
-# Get the script directory (second argument)
-SCRIPT_DIR="$2"
-
-# Log file to track playtime
-LOG_FILE="$SCRIPT_DIR/log/game_playtime_$GAME_WINDOW.log"
-
-# Target game window Id
-
-# Check if log file exists, if not, create it with column headers
-if [ ! -f "$LOG_FILE" ]; then
-    echo "Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime" > "$LOG_FILE"
-fi
+# -----------------------------
+# Utility Functions
+# -----------------------------
 
 is_game_focused() {
     if [ -z "$target_game_window_id" ]; then
@@ -73,19 +53,46 @@ load_previous_playtime() {
     fi
 }
 
+# Function to find the best match for a dynamic title
+find_best_log_match() {
+    local current_title="$1"
+    local best_match=""
+    local max_match_len=0
 
-# Initialize playtime counter
-total_playtime=$(load_previous_playtime)
-last_log_update=$(date +%s)
+    for filepath in "$SCRIPT_DIR/log"/game_playtime_*.log; do
+        [ -e "$filepath" ] || continue  # Skip if no logs exist
 
-# Current session playtime counter
-session_playtime=0
+        filename=$(basename -- "$filepath")
+        game_name="${filename#game_playtime_}"
+        game_name="${game_name%.log}"
 
-# Show initial playtime
-echo "Starting playtime: $(format_time $total_playtime)"
+        common_prefix=$(longest_common_prefix "$current_title" "$game_name")
+        prefix_len=${#common_prefix}
 
-# Get the start time for this session
-session_start=$(date '+%Y-%m-%d %H:%M:%S')
+        if (( prefix_len > best_prefix_len )); then
+            best_match="$game_name"
+            best_prefix_len=$prefix_len
+        fi
+    done
+
+    if [ -n "$best_match" ]; then
+        echo "$best_match"
+    else
+        echo "$current_title"
+    fi
+}
+
+longest_common_prefix() {
+    local str1="$1"
+    local str2="$2"
+    local i=0
+
+    while [[ "${str1:$i:1}" == "${str2:$i:1}" && $i -lt ${#str1} && $i -lt ${#str2} ]]; do
+        ((i++))
+    done
+
+    echo "${str1:0:$i}"
+}
 
 # Function to handle script termination
 cleanup() {
@@ -113,10 +120,64 @@ cleanup() {
     exit 0
 }
 
+
+# -----------------------------
+# Main Configuration and Logic
+# -----------------------------
+
+# Check if GAME_WINDOW argument is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <GAME_WINDOW> <SCRIPT_DIR> [dynamic_title]"
+    exit 1
+fi
+
+# Get GAME_WINDOW from the first argument
+GAME_WINDOW="$1"
+
+# Get the script directory (second argument)
+SCRIPT_DIR="$2"
+
+# Check for games with dynamic title bar
+DYNAMIC_TITLE="${3:-false}"
+
+# Resolve canonical game name
+if [ "$DYNAMIC_TITLE" == "true" ]; then
+    CANONICAL_GAME_NAME=$(find_best_log_match "$GAME_WINDOW" "$SCRIPT_DIR/log")
+else
+    CANONICAL_GAME_NAME="$GAME_WINDOW"
+fi
+
+# Log file to track playtime
+LOG_FILE="$SCRIPT_DIR/log/game_playtime_$CANONICAL_GAME_NAME.log"
+
+# Find the window ID
+target_game_window_id=$(kdotool search --name "$GAME_WINDOW")
+
+# Check if log file exists, if not, create it with column headers
+if [ ! -f "$LOG_FILE" ]; then
+    echo "Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime" > "$LOG_FILE"
+fi
+
+# Initialize playtime counter
+total_playtime=$(load_previous_playtime)
+last_log_update=$(date +%s)
+
+# Current session playtime counter
+session_playtime=0
+
+# Show initial playtime
+echo "Starting playtime: $(format_time $total_playtime)"
+
+# Get the start time for this session
+session_start=$(date '+%Y-%m-%d %H:%M:%S')
+
 # Trap termination signals (like Ctrl+C)
 trap cleanup SIGINT SIGTERM SIGHUP SIGQUIT
 
-# Start monitoring
+# -----------------------------
+# Tracking Loop
+# -----------------------------
+
 while true; do
     if is_game_focused; then
         # Increment only if the game is focused

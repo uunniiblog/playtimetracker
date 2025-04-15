@@ -69,11 +69,22 @@ class TimeTrackerApp(QMainWindow):
         self.refresh_button.clicked.connect(self.refresh_window_list)
         self.combo_layout.addWidget(self.refresh_button)
 
-        # Add the "Only Show Wine Processes" checkbox
+        self.checkbox_layout = QHBoxLayout()
+
+        # "Only Show Wine Processes" checkbox
         self.only_show_wine_checkbox = QCheckBox("Only Show Wine Processes")
         self.only_show_wine_checkbox.setChecked(False)  # Default to unchecked
         self.only_show_wine_checkbox.stateChanged.connect(self.refresh_window_list)
-        self.main_tab_layout.addWidget(self.only_show_wine_checkbox)
+        self.checkbox_layout.addWidget(self.only_show_wine_checkbox)
+        #self.main_tab_layout.addWidget(self.only_show_wine_checkbox)
+
+        # "Dynamic title" checkbox
+        self.dynamic_title_checkbox = QCheckBox("Game with Dynamic Title bar")
+        self.dynamic_title_checkbox.setChecked(False)  # Default to unchecked
+        #self.main_tab_layout.addWidget(self.dynamic_title_checkbox)
+        self.checkbox_layout.addWidget(self.dynamic_title_checkbox)
+
+        self.main_tab_layout.addLayout(self.checkbox_layout)
 
         self.start_button = QPushButton("Start Tracking")
         self.start_button.clicked.connect(self.start_tracking)
@@ -246,9 +257,15 @@ class TimeTrackerApp(QMainWindow):
             return
 
         self.console_output.append(f"Starting tracking for: {selected_app}")
+        dynamic_titles = self.dynamic_title_checkbox.isChecked()
         script_dir = os.path.dirname(os.path.realpath(__file__))
         track_time_script = os.path.join(script_dir, "track_time.sh")
-        self.process.start("bash", [track_time_script, selected_app, script_dir])
+
+        args = [track_time_script, selected_app, script_dir]
+        if dynamic_titles:
+            args.append("true")  # Add the dynamic title flag
+
+        self.process.start("bash", args)
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
 
