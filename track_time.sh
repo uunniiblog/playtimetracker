@@ -151,7 +151,7 @@ fi
 LOG_FILE="$SCRIPT_DIR/log/game_playtime_$CANONICAL_GAME_NAME.log"
 
 # Find the window ID
-target_game_window_id=$(kdotool search --name "$GAME_WINDOW")
+target_game_window_id=$(kdotool search --name "^$GAME_WINDOW\$")
 
 # Check if log file exists, if not, create it with column headers
 if [ ! -f "$LOG_FILE" ]; then
