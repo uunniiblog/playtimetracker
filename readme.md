@@ -4,7 +4,7 @@
 
 <img src="https://i.imgur.com/W3ixYMF.png" alt="Alt text" width="70%"/>
 
-This tool tracks game window focus time and displays playtime statistics using a lightweight server and a playtime logger script.
+This tool tracks game window focus time for more accurate playing time stats.
 
 This should work in any environment where kdotool does.
 
@@ -69,8 +69,9 @@ Run the `track_time_manual.sh` script:
 ./track_time_manual.sh
 ```
 
-- The script will monitor the window focus and log playtime into the specified `.log` file.
+- The script will monitor the window focus and log playtime into the `.log` file with the same name of the application.
 - Press `Ctrl+C` to stop tracking. A session summary will be appended to the log file.
+- If the game has a dynamic window title and a `true` as a first parameter. You also need to start the tracking at the same point (ex: main menu) so it log file stays unified.
 
 
 ---

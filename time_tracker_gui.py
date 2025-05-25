@@ -167,18 +167,11 @@ class TimeTrackerApp(QMainWindow):
     """Check if the process is running under Wine or Proton based on the PID."""
     def is_wine_or_proton(self, pid):
         try:
-            # Read the command line of the process (works for gamescope but not normal, still good for logging the process name)
-            #cmdline_result = subprocess.check_output(f"cat /proc/{pid}/cmdline", shell=True, text=True)
-
-            # Log the application being processed
-            #log_message = f"Processing PID {pid}, cmdline: {cmdline_result.strip()}"
-            #self.console_output.append(log_message)
-
             # Check the environment variables for the process (works for both normal and gamescope)
             env_result = subprocess.check_output(f"cat /proc/{pid}/environ", shell=True, text=True)
 
             #log_message = f"Processing PID {pid}, env: {env_result}"
-            #self.console_output.append(log_message)  # Display in the console output
+            #self.console_output.append(log_message)
 
             # Check if the process is running under Wine or Proton
             is_wine = "WINEPREFIX" in env_result
@@ -188,7 +181,7 @@ class TimeTrackerApp(QMainWindow):
 
             # Log the detection result
             #result_message = f"PID {pid} - Wine: {is_wine}, Proton: {is_proton}"
-            #self.console_output.append(result_message)  # Display in the console output
+            #self.console_output.append(result_message)
 
             return result
         except Exception as e:
@@ -210,7 +203,7 @@ class TimeTrackerApp(QMainWindow):
                     pid_result = subprocess.check_output(["kdotool", "getwindowpid", window_id], text=True).strip()
                     pid = int(pid_result) if pid_result else None
                     is_wine = False
-                    if pid:
+                    if only_show_wine and pid:
                         # Check if the application is running under Wine or Proton
                         is_wine = self.is_wine_or_proton(pid)
 
