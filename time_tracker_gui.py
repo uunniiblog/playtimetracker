@@ -3,9 +3,9 @@ import subprocess
 import psutil
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
-    QComboBox, QPushButton, QTextEdit, QWidget, QTabWidget, QLabel, QCheckBox
+    QComboBox, QPushButton, QTextEdit, QWidget, QTabWidget, QLabel, QCheckBox, QSpinBox
 )
-from PyQt6.QtCore import QProcess, QThread
+from PyQt6.QtCore import QProcess, QThread, Qt
 from PyQt6.QtGui import QIcon
 from pathlib import Path
 import os
@@ -20,6 +20,18 @@ import warnings
 import matplotlib.font_manager as fm
 
 class TimeTrackerApp(QMainWindow):
+
+    version = 'v2025-05-25'
+    git_url = 'https://github.com/uunniiblog/playtimetracker'
+    settings_file = Path(__file__).parent / "settings.ini"
+    log_dir = Path(__file__).parent / "log"
+    notes_dir = Path(__file__).parent / "notes"
+    settings = {
+        'LOG_REFRESH_TIMER': None,
+        'ENABLE_ONLY_WINE': None,
+        'ENABLE_DYNAMIC_TITLE': None
+    }
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Time Tracker")
@@ -48,11 +60,17 @@ class TimeTrackerApp(QMainWindow):
         self.notes_tab.setLayout(self.notes_tab_layout)
         self.tab_widget.addTab(self.notes_tab, "Notes")
 
+        self.settings_tab = QWidget()
+        self.settings_tab_layout = QVBoxLayout()
+        self.settings_tab.setLayout(self.settings_tab_layout)
+        self.tab_widget.addTab(self.settings_tab, "Settings")
+
         self.setup_main_tab()
         self.setup_stats_tab()
         self.setup_notes_tab()
+        self.setup_config_tab()
 
-        self.refresh_window_list()
+        #self.refresh_window_list()
 
 
     def setup_main_tab(self):
@@ -73,15 +91,13 @@ class TimeTrackerApp(QMainWindow):
 
         # "Only Show Wine Processes" checkbox
         self.only_show_wine_checkbox = QCheckBox("Only Show Wine Processes")
-        self.only_show_wine_checkbox.setChecked(False)  # Default to unchecked
+        self.only_show_wine_checkbox.setChecked(False)
         self.only_show_wine_checkbox.stateChanged.connect(self.refresh_window_list)
         self.checkbox_layout.addWidget(self.only_show_wine_checkbox)
-        #self.main_tab_layout.addWidget(self.only_show_wine_checkbox)
 
         # "Dynamic title" checkbox
-        self.dynamic_title_checkbox = QCheckBox("Game with Dynamic Title bar")
-        self.dynamic_title_checkbox.setChecked(False)  # Default to unchecked
-        #self.main_tab_layout.addWidget(self.dynamic_title_checkbox)
+        self.dynamic_title_checkbox = QCheckBox("Game with Dynamic Title Window")
+        self.dynamic_title_checkbox.setChecked(False)
         self.checkbox_layout.addWidget(self.dynamic_title_checkbox)
 
         self.main_tab_layout.addLayout(self.checkbox_layout)
@@ -151,6 +167,7 @@ class TimeTrackerApp(QMainWindow):
         self.notes_output = QTextEdit()
         self.notes_output.setReadOnly(False)
         self.notes_tab_layout.addWidget(self.notes_output)
+        self.notes_output.textChanged.connect(self.on_notes_text_changed)
 
         # Save button
         self.save_note_button = QPushButton("Save Note")
@@ -163,6 +180,87 @@ class TimeTrackerApp(QMainWindow):
 
         self.notes_combo.currentIndexChanged.connect(self.update_notes)
         self.load_notes_files_combo()
+
+    def setup_config_tab(self):
+        self.settings_about_label = QLabel(
+            f"PlayTimeTracker {self.version}\n{self.git_url}")
+        self.settings_about_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard)
+
+        # Text with settings
+        self.settings_text = QTextEdit()
+        self.settings_text.setReadOnly(False)
+        self.settings_text.textChanged.connect(self.on_about_text_changed)
+
+        # Save button
+        self.save_button = QPushButton("Save")
+        self.save_button.clicked.connect(self.save_settings)
+
+        # Status label for "Settings saved" message
+        self.settings_status_label = QLabel("")
+
+        # Add widgets to layout
+        self.settings_tab_layout.addWidget(self.settings_about_label)
+        self.settings_tab_layout.addWidget(self.settings_text)
+        self.settings_tab_layout.addWidget(self.save_button)
+        self.settings_tab_layout.addWidget(self.settings_status_label)
+
+        self.load_settings()
+
+    def save_settings(self):
+        with open(self.settings_file, "w", encoding="utf-8") as f:
+            f.write(self.settings_text.toPlainText())
+            self.settings_status_label.setText(f"Settings Saved.")
+
+            # Overwrite current settings
+            content = self.settings_text.toPlainText()
+            for line in content.splitlines():
+                line = line.strip()
+
+                # Skip comments and empty lines
+                if not line or line.startswith('#'):
+                    continue
+
+                if '=' in line:
+                    key, value = map(str.strip, line.split('=', 1))
+                    if key in self.settings:
+                        try:
+                            self.settings[key] = int(value)
+                        except ValueError:
+                            self.settings[key] = value  # fallback to raw string
+
+    def load_settings(self):
+        with open(self.settings_file, 'r') as f:
+            content = f.read()
+            # Load file into the text editor
+            self.settings_text.append(content)
+
+            # Read Settings
+            for line in content.splitlines():
+                line = line.strip()
+
+                # Skip comments and empty lines
+                if not line or line.startswith('#'):
+                    continue
+
+                if '=' in line:
+                    key, value = map(str.strip, line.split('=', 1))
+                    if key in self.settings:
+                        try:
+                            self.settings[key] = int(value)
+                        except ValueError:
+                            self.settings[key] = value  # fallback to raw string
+
+            # Load settings
+            print(f"Settings loaded: {self.settings}")
+            self.console_output.append(f"\nPlayTimeTracker {self.version}\n")
+            self.only_show_wine_checkbox.setChecked(bool(self.settings.get('ENABLE_ONLY_WINE', 0)))
+            self.dynamic_title_checkbox.setChecked(bool(self.settings.get('ENABLE_DYNAMIC_TITLE', 0)))
+            if self.settings.get('ENABLE_ONLY_WINE') == 0:
+                self.refresh_window_list()
+
+    def on_about_text_changed(self):
+        self.settings_status_label.setText("")
+
 
     """Check if the process is running under Wine or Proton based on the PID."""
     def is_wine_or_proton(self, pid):
@@ -249,15 +347,15 @@ class TimeTrackerApp(QMainWindow):
             self.console_output.append("No application selected!")
             return
 
-        self.console_output.append(f"Starting tracking for: {selected_app}")
         dynamic_titles = self.dynamic_title_checkbox.isChecked()
         script_dir = os.path.dirname(os.path.realpath(__file__))
         track_time_script = os.path.join(script_dir, "track_time.sh")
 
-        args = [track_time_script, selected_app, script_dir]
+        args = [track_time_script, selected_app, script_dir, str(self.settings.get('LOG_REFRESH_TIMER', 0))]
         if dynamic_titles:
             args.append("true")  # Add the dynamic title flag
 
+        self.console_output.append(f"Starting tracking for: {selected_app}")
         self.process.start("bash", args)
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
@@ -298,12 +396,11 @@ class TimeTrackerApp(QMainWindow):
         self.update_graph()  # Update the graph with new data
 
     def load_log_files(self):
-        log_dir = Path(__file__).parent / "log"
-        if not log_dir.exists():
+        if not self.log_dir.exists():
             self.console_output.append("Log directory not found.")
             return
 
-        self.log_files = {file.stem.replace("game_playtime_", "").replace(".log", ""): file for file in log_dir.glob("game_playtime_*.log")}
+        self.log_files = {file.stem.replace("game_playtime_", "").replace(".log", ""): file for file in self.log_dir.glob("game_playtime_*.log")}
 
         if not self.log_files:
             self.console_output.append("No log files found.")
@@ -337,11 +434,10 @@ class TimeTrackerApp(QMainWindow):
     def load_notes_files_combo(self):
         # Get list of apps from log folder first
         # Then create or update in notes folder .txt for each app
-        log_dir = Path(__file__).parent / "log"
-        if not log_dir.exists():
+        if not self.log_dir.exists():
             self.console_output.append("Log directory not found.")
             return
-        self.log_files = {file.stem.replace("game_playtime_", "").replace(".log", ""): file for file in log_dir.glob("game_playtime_*.log")}
+        self.log_files = {file.stem.replace("game_playtime_", "").replace(".log", ""): file for file in self.log_dir.glob("game_playtime_*.log")}
         if not self.log_files:
             self.console_output.append("No app with logs found.")
             return
@@ -358,36 +454,36 @@ class TimeTrackerApp(QMainWindow):
             self.update_notes()
 
     def update_notes(self):
-        notes_dir = Path(__file__).parent / "notes"
-        if not notes_dir.exists():
+        if not self.notes_dir.exists():
             self.notes_output.append("Notes directory not found.")
             return
 
         # Search if notes file for game exist already
-        self.notes_files = {file.stem.replace("notes_", "").replace(".txt", ""): file for file in notes_dir.glob("notes_*.txt")}
+        self.notes_files = {file.stem.replace("notes_", "").replace(".txt", ""): file for file in self.notes_dir.glob("notes_*.txt")}
         app_combo = self.notes_combo.currentText()
         note_found = False
         for app_note, file_path in self.notes_files.items():
             if app_combo.strip() == app_note.strip():
-                #self.console_output.append("note found in disk")
                 note_found = True
                 with file_path.open("r", encoding="utf-8") as f:
-                    self.notes_output.setPlainText(f.read())  # Append file content to notes_output
+                    self.notes_output.setPlainText(f.read())
                 break
 
         if not note_found:
             self.notes_output.clear()
 
     def save_note(self):
-        notes_dir = Path(__file__).parent / "notes"
         app_name = self.notes_combo.currentText().strip()
-        note_file = notes_dir / f"notes_{app_name}.txt"
+        note_file = self.notes_dir / f"notes_{app_name}.txt"
         with note_file.open("w", encoding="utf-8") as f:
             # Save all text from notes_output
             f.write(self.notes_output.toPlainText())
 
         # Show message saved
         self.note_status_label.setText(f"Note saved for {app_name}.")
+
+    def on_notes_text_changed(self):
+        self.note_status_label.setText("")
 
     def generate_global_graph(self):
         total_playtimes = {}

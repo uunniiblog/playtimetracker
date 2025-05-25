@@ -1,7 +1,5 @@
 #!/bin/bash
 # Need to install kdotool https://github.com/jinliu/kdotool
-# Modify GAME_WINDOW -> It should be the Title bar name, can get the name of all current windows with this command with kdotool: for window_id in $(kdotool search --name .); do kdotool getwindowname $window_id; done
-# Modify LOG_FILE to the path and name you want
 
 # -----------------------------
 # Utility Functions
@@ -112,6 +110,7 @@ cleanup() {
     echo "$session_start; $session_end; $session_length_formatted; $session_playtime_log; $(format_time $total_playtime)" >> "$LOG_FILE"
 
     # Output the session details to the console
+    echo "Session logged: Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime"
     echo "Session logged: $session_start; $session_end; $session_length_formatted; $session_playtime_log; $(format_time $total_playtime)"
 
     # Print the path and name of the modified log file
@@ -137,8 +136,11 @@ GAME_WINDOW="$1"
 # Get the script directory (second argument)
 SCRIPT_DIR="$2"
 
+# Visual Tracking Refresh Timer in Seconds, 0 = off (third argument)
+REFRESH_LOG="$3"
+
 # Check for games with dynamic title bar
-DYNAMIC_TITLE="${3:-false}"
+DYNAMIC_TITLE="${4:-false}"
 
 # Resolve canonical game name
 if [ "$DYNAMIC_TITLE" == "true" ]; then
@@ -185,9 +187,9 @@ while true; do
         ((session_playtime++))
     fi
     # Debug console log
-    # Check if it's been at least 60 seconds since the last log update
+    # Check if it's been at least $REFRESH_LOG seconds since the last log update
     current_time=$(date +%s)
-    if (( current_time - last_log_update >= 60 )); then
+    if [[ "$REFRESH_LOG" -ne 0 && $(( current_time - last_log_update )) -ge "$REFRESH_LOG" ]]; then
         echo "Session playtime: $(format_time $session_playtime)"
         echo "Total playtime: $(format_time $total_playtime)"
         last_log_update=$current_time

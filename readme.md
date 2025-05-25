@@ -71,7 +71,7 @@ Run the `track_time_manual.sh` script:
 
 - The script will monitor the window focus and log playtime into the `.log` file with the same name of the application.
 - Press `Ctrl+C` to stop tracking. A session summary will be appended to the log file.
-- If the game has a dynamic window title and a `true` as a first parameter. You also need to start the tracking at the same point (ex: main menu) so it log file stays unified.
+- If the game has a dynamic window title add a `true` as a first parameter. You also need to start the tracking at the same point (ex: main menu) so the log file stays unified.
 
 
 ---
