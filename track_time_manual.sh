@@ -4,7 +4,7 @@
 # Can get the name of all current windows with this command with kdotool: for window_id in $(kdotool search --name .); do kdotool getwindowname $window_id; done
 
 echo
-echo "playtimetracker (v2025-05-25)"
+echo "playtimetracker (v2025-07-15)"
 echo
 
 # Name of the window title to monitor
@@ -77,9 +77,9 @@ find_best_log_match() {
         common_prefix=$(longest_common_prefix "$current_title" "$game_name")
         prefix_len=${#common_prefix}
 
-        if (( prefix_len > best_prefix_len )); then
+        if (( prefix_len > max_match_len )); then
             best_match="$game_name"
-            best_prefix_len=$prefix_len
+            max_match_len=$prefix_len
         fi
     done
 
@@ -137,11 +137,18 @@ cleanup() {
 
 target_game_window_id=$(kdotool search --name "^$GAME_WINDOW\$")
 
+if [ -z "$target_game_window_id" ]; then
+    echo "Game process not found. Refresh the list and try again."
+    exit 1
+fi
+
+#echo "target_game_window_id: $target_game_window_id"
+
 # Get the absolute path of the directory where the script is located
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
 # Visual Tracking Refresh Timer in Seconds, 0 = off
-REFRESH_LOG="5"
+REFRESH_LOG="60"
 
 # Check for games with dynamic title bar
 DYNAMIC_TITLE="${1:-false}"
@@ -159,6 +166,8 @@ LOG_FILE="$SCRIPT_DIR/log/game_playtime_$CANONICAL_GAME_NAME.log"
 # Check if log file exists, if not, create it with column headers
 if [ ! -f "$LOG_FILE" ]; then
     echo "Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime" > "$LOG_FILE"
+else
+    echo "Log found: $LOG_FILE"
 fi
 
 # Initialize playtime counter

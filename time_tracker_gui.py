@@ -21,7 +21,7 @@ import matplotlib.font_manager as fm
 
 class TimeTrackerApp(QMainWindow):
 
-    version = 'v2025-05-25'
+    version = 'v2025-07-15'
     git_url = 'https://github.com/uunniiblog/playtimetracker'
     settings_file = Path(__file__).parent / "settings.ini"
     log_dir = Path(__file__).parent / "log"
@@ -34,7 +34,7 @@ class TimeTrackerApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Time Tracker")
+        self.setWindowTitle(f"\nPlayTimeTracker {self.version}")
         self.setGeometry(100, 100, 800, 600)
 
         self.central_widget = QWidget()
@@ -118,6 +118,8 @@ class TimeTrackerApp(QMainWindow):
         self.process = QProcess()
         self.process.readyReadStandardOutput.connect(self.update_console)
         self.process.readyReadStandardError.connect(self.update_console)
+
+        self.process.finished.connect(self.tracking_finished)
 
     def setup_stats_tab(self):
         self.app_combo = QComboBox()
@@ -368,6 +370,15 @@ class TimeTrackerApp(QMainWindow):
             self.console_output.append("Tracking stopped.")
         else:
             self.console_output.append("No tracking process is running.")
+        self.start_button.setEnabled(True)
+        self.stop_button.setEnabled(False)
+
+    def tracking_finished(self, exit_code, exit_status):
+        '''if exit_code != 0:
+            self.console_output.append("Tracking script finished with error")
+        else:
+            self.console_output.append("Tracking script finished.")'''
+
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
 

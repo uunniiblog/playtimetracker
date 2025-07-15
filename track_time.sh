@@ -67,9 +67,9 @@ find_best_log_match() {
         common_prefix=$(longest_common_prefix "$current_title" "$game_name")
         prefix_len=${#common_prefix}
 
-        if (( prefix_len > best_prefix_len )); then
+        if (( prefix_len > max_match_len )); then
             best_match="$game_name"
-            best_prefix_len=$prefix_len
+            max_match_len=$prefix_len
         fi
     done
 
@@ -154,10 +154,18 @@ LOG_FILE="$SCRIPT_DIR/log/game_playtime_$CANONICAL_GAME_NAME.log"
 
 # Find the window ID
 target_game_window_id=$(kdotool search --name "^$GAME_WINDOW\$")
+if [ -z "$target_game_window_id" ]; then
+    echo "Game process not found. Refresh the list and try again."
+    exit 1
+fi
+
+#echo "target_game_window_id: $target_game_window_id"
 
 # Check if log file exists, if not, create it with column headers
 if [ ! -f "$LOG_FILE" ]; then
     echo "Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime" > "$LOG_FILE"
+else
+    echo "Log found: $LOG_FILE"
 fi
 
 # Initialize playtime counter
