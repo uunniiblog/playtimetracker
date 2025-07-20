@@ -171,6 +171,7 @@ fi
 # Initialize playtime counter
 total_playtime=$(load_previous_playtime)
 last_log_update=$(date +%s)
+last_increment=$(date +%s)
 
 # Current session playtime counter
 session_playtime=0
@@ -187,21 +188,27 @@ trap cleanup SIGINT SIGTERM SIGHUP SIGQUIT
 # -----------------------------
 # Tracking Loop
 # -----------------------------
-
 while true; do
-    if is_game_focused; then
-        # Increment only if the game is focused
-        ((total_playtime++))
-        ((session_playtime++))
-    fi
-    # Debug console log
-    # Check if it's been at least $REFRESH_LOG seconds since the last log update
     current_time=$(date +%s)
+
+    # Update timers once per second
+    if (( current_time > last_increment )); then
+        if is_game_focused; then
+            # Increment only if the game is focused
+            ((total_playtime++))
+            ((session_playtime++))
+        fi
+        last_increment=$current_time
+    fi
+
+    # Debug messages
+    # Check if it's been $REFRESH_LOG seconds since last debug messages update
     if [[ "$REFRESH_LOG" -ne 0 && $(( current_time - last_log_update )) -ge "$REFRESH_LOG" ]]; then
         echo "Session playtime: $(format_time $session_playtime)"
         echo "Total playtime: $(format_time $total_playtime)"
         last_log_update=$current_time
     fi
-    # Check every second
-    sleep 1
+
+    # Small sleep
+    sleep 0.1
 done

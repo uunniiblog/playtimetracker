@@ -21,7 +21,7 @@ import matplotlib.font_manager as fm
 
 class TimeTrackerApp(QMainWindow):
 
-    version = 'v2025-07-15'
+    version = 'v2025-07-20'
     git_url = 'https://github.com/uunniiblog/playtimetracker'
     settings_file = Path(__file__).parent / "settings.ini"
     log_dir = Path(__file__).parent / "log"

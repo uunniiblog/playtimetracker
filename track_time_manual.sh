@@ -4,7 +4,7 @@
 # Can get the name of all current windows with this command with kdotool: for window_id in $(kdotool search --name .); do kdotool getwindowname $window_id; done
 
 echo
-echo "playtimetracker (v2025-07-15)"
+echo "playtimetracker (v2025-07-20)"
 echo
 
 # Name of the window title to monitor
@@ -138,7 +138,7 @@ cleanup() {
 target_game_window_id=$(kdotool search --name "^$GAME_WINDOW\$")
 
 if [ -z "$target_game_window_id" ]; then
-    echo "Game process not found. Refresh the list and try again."
+    echo "Game process not found. Change the name and try again."
     exit 1
 fi
 
@@ -173,6 +173,7 @@ fi
 # Initialize playtime counter
 total_playtime=$(load_previous_playtime)
 last_log_update=$(date +%s)
+last_increment=$(date +%s)
 
 # Current session playtime counter
 session_playtime=0
@@ -189,21 +190,31 @@ trap cleanup SIGINT SIGTERM SIGHUP SIGQUIT
 # -----------------------------
 # Tracking Loop
 # -----------------------------
-
+# -----------------------------
+# Tracking Loop
+# -----------------------------
 while true; do
-    if is_game_focused; then
-        # Increment only if the game is focused
-        ((total_playtime++))
-        ((session_playtime++))
-    fi
-    # Debug console log
-    # Check if it's been at least 60 seconds since the last log update
     current_time=$(date +%s)
+
+    # Update timers once per second
+    if (( current_time > last_increment )); then
+        if is_game_focused; then
+            # Increment only if the game is focused
+            ((total_playtime++))
+            ((session_playtime++))
+        fi
+        last_increment=$current_time
+    fi
+
+    # Debug messages
+    # Check if it's been $REFRESH_LOG seconds since last debug messages update
     if [[ "$REFRESH_LOG" -ne 0 && $(( current_time - last_log_update )) -ge "$REFRESH_LOG" ]]; then
         echo "Session playtime: $(format_time $session_playtime)"
         echo "Total playtime: $(format_time $total_playtime)"
         last_log_update=$current_time
     fi
-    # Check every second
-    sleep 1
+
+    # Small sleep
+    sleep 0.1
 done
+
