@@ -74,8 +74,9 @@ class TrackingTab(QWidget):
         self.stop_btn.setEnabled(True)
         self.console.append(f"Starting tracking for: {app}")
 
-        timer = self.data.settings.get('LOG_REFRESH_TIMER', 0)
-        self.tracker.start_tracking(app, timer, self.dynamic_check.isChecked())
+        refresh_timer = self.data.settings.get('LOG_REFRESH_TIMER', 0)
+        save_time = self.data.settings.get('LOG_PERIODIC_SAVE', 0)
+        self.tracker.start_tracking(app, refresh_timer, save_time, self.dynamic_check.isChecked())
 
     def stop_tracking(self):
         self.console.append("Stopping tracking...")

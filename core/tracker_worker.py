@@ -10,7 +10,7 @@ from core.utils_factory import get_desktop_utils
 class TrackerWorker(QThread):
     log_message = pyqtSignal(str)
 
-    def __init__(self, app_name, refresh_interval, dynamic_title=False):
+    def __init__(self, app_name, refresh_interval, save_interval, dynamic_title=False):
         super().__init__()
         try:
             self.utils = get_desktop_utils()
@@ -24,8 +24,10 @@ class TrackerWorker(QThread):
             self.app_name = app_name
 
         self.refresh_interval = int(refresh_interval)
+        self.save_interval = int(save_interval) * 60
         self.dynamic_title = dynamic_title
         self.running = True
+        self.session_line_exists = False
 
         # Internal counters
         self.total_playtime = 0
@@ -87,6 +89,7 @@ class TrackerWorker(QThread):
 
         last_tick = time.monotonic()
         last_log_update = last_tick
+        last_save_time = last_tick
 
         # Accumulator for sub-second precision
         accumulator = 0.0
@@ -115,19 +118,23 @@ class TrackerWorker(QThread):
                 self.refresh_interval > 0
                 and (now - last_log_update) >= self.refresh_interval
             ):
-                self.log_message.emit(
-                    f"Session playtime: {self.format_time(self.session_playtime)}"
-                )
-                self.log_message.emit(
-                    f"Total playtime: {self.format_time(self.total_playtime)}"
-                )
+                self.log_message.emit(f"Session playtime: {self.format_time(self.session_playtime)}")
+                self.log_message.emit(f"Total playtime: {self.format_time(self.total_playtime)}")
                 last_log_update = now
+
+            # Periodic Save
+            if self.save_interval > 0 and (now - last_save_time) >= self.save_interval:
+                self.log_message.emit(f"Log file modified: {self.log_file}")
+                session_end = datetime.datetime.now()
+                self._persist_to_log(session_end)
+                last_save_time = now
 
             # Small sleep to reduce CPU usage
             time.sleep(0.1)
 
         # Persist session on exit
-        self.cleanup()
+        session_end = datetime.datetime.now()
+        self._persist_to_log(session_end, True)
 
     def load_previous_playtime(self):
         """Extracts the last 'Total Playtime' column from the log file."""
@@ -157,12 +164,24 @@ class TrackerWorker(QThread):
         return f"{h}:{m:02d}:{s:02d}"
 
     def cleanup(self):
-        """Saves session data to log file on stop."""
+        """Saves final session data to log file on stop."""
         session_end = datetime.datetime.now()
         session_length = int((session_end - self.session_start).total_seconds())
 
         start_str = self.session_start.strftime('%Y-%m-%d %H:%M:%S')
         end_str = session_end.strftime('%Y-%m-%d %H:%M:%S')
+        self._persist_to_log()
+
+        # Show data
+        self.log_message.emit("Session logged: Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime")
+        self.log_message.emit(f"Session logged: {start_str}; {end_str}; {self.format_time(session_length)}; {self.format_time(self.session_playtime)}; {self.format_time(self.total_playtime)}")
+        self.log_message.emit(f"Log file modified: {self.log_file}")
+
+    def _persist_to_log(self, session_current_end, final=False):
+        """Writes current stats to the log. Overwrites the last line if session already started."""
+        session_length = int((session_current_end - self.session_start).total_seconds())
+        start_str = self.session_start.strftime('%Y-%m-%d %H:%M:%S')
+        end_str = session_current_end.strftime('%Y-%m-%d %H:%M:%S')
 
         log_entry = (
             f"{start_str}; {end_str}; "
@@ -171,13 +190,26 @@ class TrackerWorker(QThread):
             f"{self.format_time(int(self.total_playtime))}\n"
         )
 
-        with open(self.log_file, "a", encoding="utf-8") as f:
-            f.write(log_entry)
+        try:
+            if not self.session_line_exists:
+                # First time saving this session: Just append
+                with open(self.log_file, "a", encoding="utf-8") as f:
+                    f.write(log_entry)
+                self.session_line_exists = True
+            else:
+                # Session already has a line: Replace the last line
+                lines = self.log_file.read_text(encoding="utf-8").splitlines()
+                if lines:
+                    lines[-1] = log_entry.strip() # Replace last line
+                    self.log_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        except Exception as e:
+            self.log_message.emit(f"Save Error: {str(e)}")
 
         # Show data
-        self.log_message.emit("Session logged: Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime")
-        self.log_message.emit(f"Session logged: {start_str}; {end_str}; {self.format_time(session_length)}; {self.format_time(self.session_playtime)}; {self.format_time(self.total_playtime)}")
-        self.log_message.emit(f"Log file modified: {self.log_file}")
+        if(final):
+            self.log_message.emit("Session logged: Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime")
+            self.log_message.emit(f"Session logged: {start_str}; {end_str}; {self.format_time(session_length)}; {self.format_time(self.session_playtime)}; {self.format_time(self.total_playtime)}")
+            self.log_message.emit(f"Log file modified: {self.log_file}")
 
     def stop(self):
         self.running = False

@@ -9,12 +9,12 @@ class TrackerService(QObject):
         super().__init__()
         self.worker = None
 
-    def start_tracking(self, app_name, refresh_timer, dynamic_title=False):
+    def start_tracking(self, app_name, refresh_timer, save_interval, dynamic_title=False):
         # Stop existing worker if any
         if self.worker and self.worker.isRunning():
             self.stop_tracking()
 
-        self.worker = TrackerWorker(app_name, refresh_timer, dynamic_title)
+        self.worker = TrackerWorker(app_name, refresh_timer, save_interval, dynamic_title)
         self.worker.log_message.connect(self.log_received.emit)
         self.worker.finished.connect(self.tracking_finished.emit)
         self.worker.start()
