@@ -17,14 +17,15 @@ Ensure the following tools are installed on your system:
 - **Python 3.10+**
 - **PyQt6**
 - **Systemd** (Used for KWin log parsing)
+- **dbus-python** (Used or KWin calls)
 
 ---
 
 ## 2. Open the python application
 
 ```bash
-git clone https://github.com/your-username/playtimetracker_gui_v2.git
-cd playtimetracker_gui
+git clone https://github.com/uunniiblog/playtimetracker.git
+cd playtimetracker
 python main.py 
 ```
    
@@ -35,7 +36,7 @@ For a shortcut you can make a .desktop file with the icon you want:
 [Desktop Entry]
 Name=Time Tracker
 Comment=Track playtime for your apps
-Exec=/usr/bin/python3 /home/user/Documents/playtimetracker_gui/main.py
+Exec=/usr/bin/python3 /home/user/Documents/playtimetracker/main.py
 Icon=utilities-system-monitor
 Terminal=false
 Type=Application
