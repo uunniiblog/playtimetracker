@@ -12,6 +12,8 @@ class StatsTab(QWidget):
 
     def setup_ui(self):
         layout = QVBoxLayout()
+        layout.setSpacing(5)
+        layout.setContentsMargins(10, 10, 10, 10)
         self.setLayout(layout)
 
         controls = QHBoxLayout()
@@ -27,11 +29,12 @@ class StatsTab(QWidget):
         layout.addLayout(controls)
 
         self.info_label = QLabel("Total: 0h")
+        self.info_label.setStyleSheet("font-size: 14px; font-weight: bold; color: white; margin-bottom: 0px;")
         layout.addWidget(self.info_label)
 
-        self.figure = plt.figure()
+        self.figure = plt.figure(figsize=(5, 3))
         self.canvas = FigureCanvas(self.figure)
-        layout.addWidget(self.canvas)
+        layout.addWidget(self.canvas, stretch=1)
 
         self.refresh_data()
 

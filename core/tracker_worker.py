@@ -85,7 +85,7 @@ class TrackerWorker(QThread):
         """ Main loop logic to calculate active window focus """
         # Load previous total playtime
         self.total_playtime = self.load_previous_playtime()
-        self.log_message.emit(f"Starting tracking for: {self.app_name} ({self.target_window_id})")
+        self.log_message.emit(f"Starting tracking for: {self.app_name} {self.target_window_id}")
         self.log_message.emit(f"Starting playtime: {self.format_time(self.total_playtime)}")
 
         last_tick = time.monotonic()

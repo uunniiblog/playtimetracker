@@ -19,8 +19,8 @@ def get_desktop_utils():
         print("Using GnomeUtils")
         return GnomeUtils()
     else:
-        # No default fallback - raise an explicit exception
+        # Give error if no supported DE
         raise RuntimeError(
             f"Unsupported Desktop Environment: '{de}'. "
-            "This application currently only supports KDE (via kdotool)."
+            "This application currently only supports KDE via KWin Scripting API."
         )
