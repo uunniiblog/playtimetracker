@@ -29,7 +29,6 @@ cd playtimetracker
 python main.py 
 ```
 
-```markdown
 Cli Options
 
 ```bash
