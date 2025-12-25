@@ -147,3 +147,14 @@ class KdeUtils(DesktopUtilsInterface):
                 val = line.split("SEARCH_RESULT:")[1].strip()
                 return val if val != "null" else None
         return None
+
+    def find_window_by_pid(self, target_pid):
+        """Returns (window_id, window_title) for a specific PID."""
+        self._refresh_cache()
+        target_pid = str(target_pid)
+        
+        for wid, info in self._window_cache.items():
+            if str(info.get('pid')) == target_pid:
+                return wid, info.get('name')
+
+        return None, None

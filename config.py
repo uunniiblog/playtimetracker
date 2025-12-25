@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-VERSION = 'v2025-12-24'
+VERSION = 'v2025-12-25'
 GIT_URL = 'https://github.com/uunniiblog/playtimetracker'
 
 # Paths

@@ -88,12 +88,38 @@ class TrackingTab(QWidget):
         self.console.append("Tracking stopped.")
 
     def append_log(self, text):
-        # Check if the scrollbar is already at the maximum position
+        """Inserts text at console."""
         scrollbar = self.console.verticalScrollBar()
         at_bottom = scrollbar.value() == scrollbar.maximum()
 
-        self.console.append(text)
+        cursor = self.console.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
 
-        # Only auto-scroll if the user was already at the bottom
+        if self.console.toPlainText() and not self.console.toPlainText().endswith("\n"):
+            cursor.insertText("\n")
+
+        cursor.insertText(text)
+
         if at_bottom:
-            scrollbar.setValue(scrollbar.maximum())
+            self.console.ensureCursorVisible()
+
+    def append_partial_log(self, text):
+        """Inserts text at the end of the console without a newline."""
+        cursor = self.console.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        cursor.insertText(text)
+        # Ensure the scrollbar stays at the bottom
+        self.console.ensureCursorVisible()
+
+    def start_tracking_with_params(self, title):
+        """Programmatically starts tracking for a specific window title."""
+        # Find the title in our combo box
+        index = self.window_combo.findText(title)
+        if index >= 0:
+            self.window_combo.setCurrentIndex(index)
+        else:
+            # If it's not in the list, add it temporarily
+            self.window_combo.addItem(title)
+            self.window_combo.setCurrentText(title)
+            
+        self.start_tracking()

@@ -9,3 +9,4 @@ class GnomeUtils(DesktopUtilsInterface):
     def get_window_pid(self, wid): self._raise_not_implemented()
     def get_active_window_id(self): self._raise_not_implemented()
     def find_window_id_by_title(self, target_title, dynamic=False): self._raise_not_implemented()
+    def find_window_by_pid(self, target_pid): self._raise_not_implemented()

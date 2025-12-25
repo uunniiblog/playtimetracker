@@ -28,6 +28,22 @@ git clone https://github.com/uunniiblog/playtimetracker.git
 cd playtimetracker
 python main.py 
 ```
+
+```markdown
+Cli Options
+
+```bash
+usage: main.py [-h] [-v] [target]
+
+PlayTimeTracker - A game time tracking utility for KDE Wayland 6.
+
+positional arguments:
+  target         The .exe or process name to track automatically (Requires more testing still). If omitted, the GUI launches normally.
+
+options:
+  -h, --help     show this help message and exit
+  -v, --version  Show the application version and exit.
+```
    
 For a shortcut you can make a .desktop file with the icon you want:
 
