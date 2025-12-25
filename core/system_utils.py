@@ -1,13 +1,6 @@
-from core.utils_factory import get_desktop_utils
-
-try:
-    utils = get_desktop_utils()
-except RuntimeError:
-    utils = None
-
 class SystemUtils:
     @staticmethod
-    def is_wine_or_proton(pid):
+    def is_wine_or_proton(utils, pid):
         if not utils: return False
         try:
             env_result = utils.get_process_environ(pid)
@@ -16,7 +9,7 @@ class SystemUtils:
             return False
 
     @staticmethod
-    def get_window_list(only_show_wine=False):
+    def get_window_list(utils, only_show_wine=False):
         """Returns a list of tuples: (title, window_id) using the detected DE utils."""
         if not utils: return []
 
@@ -33,7 +26,7 @@ class SystemUtils:
                     if only_show_wine:
                         pid_str = utils.get_window_pid(wid)
                         # Ensure we convert the PID string to int for the environ check
-                        if pid_str and pid_str.isdigit() and SystemUtils.is_wine_or_proton(int(pid_str)):
+                        if pid_str and pid_str.isdigit() and SystemUtils.is_wine_or_proton(utils, int(pid_str)):
                             window_list.append((title, wid))
                     else:
                         window_list.append((title, wid))

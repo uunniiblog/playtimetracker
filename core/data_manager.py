@@ -71,3 +71,71 @@ class DataManager:
                     except ValueError: continue
 
         return (total_seconds / 3600), daily_data
+
+    def get_log_content(self, app_name):
+        """
+        Parses the log file.
+        """
+        log_path = config.LOG_DIR / f"game_playtime_{app_name}.log"
+        if not log_path.exists():
+            return [], []
+
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            
+            if not lines:
+                return [], []
+
+            # Parse Header
+            # We strip whitespace but keep the specific separator logic
+            headers = [h.strip() for h in lines[0].strip().split(";")]
+            
+            # Parse Rows
+            data = []
+            for line in lines[1:]:
+                if not line.strip(): continue
+                # Split by semicolon
+                row_items = [item.strip() for item in line.strip().split(";")]
+                # Ensure row has same number of columns as header (pad with empty if needed)
+                while len(row_items) < len(headers):
+                    row_items.append("")
+                data.append(row_items)
+                
+            return headers, data
+        except Exception as e:
+            print(f"Error reading log: {e}")
+            return [], []
+
+    def save_log_content(self, app_name, headers, data):
+        """
+        Writes headers and data back to the log file.
+        """
+        log_path = config.LOG_DIR / f"game_playtime_{app_name}.log"
+        
+        try:
+            with open(log_path, "w", encoding="utf-8") as f:
+                # 1. Write Header
+                # Reconstruct the "; " separator style
+                header_line = "; ".join(headers) + "\n"
+                f.write(header_line)
+                
+                # 2. Write Data
+                for row in data:
+                    line = "; ".join(row) + "\n"
+                    f.write(line)
+            return True
+        except Exception as e:
+            print(f"Error saving log: {e}")
+            return False
+
+    def delete_log_file(self, app_name):
+        """Physically deletes the .log file."""
+        log_path = config.LOG_DIR / f"game_playtime_{app_name}.log"
+        try:
+            if log_path.exists():
+                log_path.unlink()
+            return True
+        except Exception as e:
+            print(f"Error deleting file: {e}")
+            return False

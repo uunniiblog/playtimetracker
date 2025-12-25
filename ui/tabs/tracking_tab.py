@@ -61,7 +61,8 @@ class TrackingTab(QWidget):
 
     def refresh_list(self):
         self.window_combo.clear()
-        windows = SystemUtils.get_window_list(self.wine_check.isChecked())
+        utils = self.tracker.desktop_utils
+        windows = SystemUtils.get_window_list(utils, self.wine_check.isChecked())
         for title, _ in windows:
             self.window_combo.addItem(title)
         self.console.append("List refreshed.")
@@ -72,7 +73,6 @@ class TrackingTab(QWidget):
 
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self.console.append(f"Starting tracking for: {app}")
 
         refresh_timer = self.data.settings.get('LOG_REFRESH_TIMER', 0)
         save_time = self.data.settings.get('LOG_PERIODIC_SAVE', 0)

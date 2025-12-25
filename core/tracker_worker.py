@@ -5,24 +5,21 @@ import os
 from PyQt6.QtCore import QThread, pyqtSignal
 import config
 from core.kde_utils import KdeUtils
-from core.utils_factory import get_desktop_utils
 
 class TrackerWorker(QThread):
     log_message = pyqtSignal(str)
 
-    def __init__(self, app_name, refresh_interval, save_interval, dynamic_title=False):
+    def __init__(self, app_name, refresh_interval, save_interval, desktop_utils, dynamic_title=False):
         super().__init__()
-        try:
-            self.utils = get_desktop_utils()
-        except RuntimeError as e:
-            self.log_message.emit(f"ERROR: {str(e)}")
-            self.stop()
+
+        self.utils = desktop_utils
 
         if dynamic_title:
             self.app_name = self.find_best_log_match(app_name)
         else:
             self.app_name = app_name
 
+        self.target_window_id = self.utils.find_window_id_by_title(app_name, dynamic_title)
         self.refresh_interval = int(refresh_interval)
         self.save_interval = int(save_interval) * 60
         self.dynamic_title = dynamic_title
@@ -36,6 +33,21 @@ class TrackerWorker(QThread):
 
         # Define the log file path based on the 'best match' name
         self.log_file = config.LOG_DIR / f"game_playtime_{self.app_name}.log"
+
+    def is_window_open(self):
+        """Checks if any open window matches the target window id."""
+        try:
+            # Get all IDs again
+            all_ids = self.utils.get_all_window_ids()
+            if self.target_window_id in all_ids:
+                return True
+            
+            # Rechecks in case of game restarting
+            self.target_window_id = self.utils.find_window_id_by_title(self.app_name, self.dynamic_title)
+            return self.target_window_id is not None
+        except Exception as e:
+            self.log_message.emit(f"Error checking window status: {e}")
+            return False
 
     def find_best_log_match(self, current_title):
         """ Logic to find if similar log file already exists """
@@ -60,36 +72,29 @@ class TrackerWorker(QThread):
         return best_match
 
     def is_game_focused(self):
-        try:
-            active_id = self.utils.get_active_window_id()
-            active_title = self.utils.get_window_name(active_id)
-
-            #self.log_message.emit(f"active_title: {active_title}")
-            #self.log_message.emit(f"self.app_name: {self.app_name}")
-
-            if self.dynamic_title:
-                if self.app_name.lower() in active_title.lower() or \
-                   active_title.lower() in self.app_name.lower():
-                    return True
-
-                common = os.path.commonprefix([self.app_name.lower(), active_title.lower()])
-                if len(common) >= 15:
-                    return True
-
-                return False
-
-            return self.app_name == active_title
-        except Exception:
+        """ Checks if target ID is focused """
+        if not self.target_window_id:
             return False
 
+        active_id = self.utils.get_active_window_id()
+        #print(f"active_id: {active_id}")
+        #print(f"self.target_window_id: {self.target_window_id}")
+        return str(active_id) == str(self.target_window_id)
+
     def run(self):
+        """ Main loop logic to calculate active window focus """
         # Load previous total playtime
         self.total_playtime = self.load_previous_playtime()
+        self.log_message.emit(f"Starting tracking for: {self.app_name} ({self.target_window_id})")
         self.log_message.emit(f"Starting playtime: {self.format_time(self.total_playtime)}")
 
         last_tick = time.monotonic()
         last_log_update = last_tick
         last_save_time = last_tick
+
+        # Check if windows exists
+        last_existence_check = 0 
+        window_currently_open = True
 
         # Accumulator for sub-second precision
         accumulator = 0.0
@@ -98,11 +103,22 @@ class TrackerWorker(QThread):
             now = time.monotonic()
             delta = now - last_tick
             last_tick = now
-
-            # Accumulate elapsed time
             accumulator += delta
 
-            # Process whole seconds only
+            # Existence Check (Every 4.5 seconds)
+            if now - last_existence_check >= 4.5:
+                is_open = self.is_window_open()
+                
+                if window_currently_open and not is_open:
+                    self.log_message.emit(f"'{self.app_name}' closed. Waiting for restart...")
+                    window_currently_open = False
+                elif not window_currently_open and is_open:
+                    self.log_message.emit(f"'{self.app_name}' detected again with new ID {self.target_window_id}. Resuming tracking.")
+                    window_currently_open = True
+                
+                last_existence_check = now
+
+            # Increment timer every second
             if accumulator >= 1.0:
                 seconds_passed = int(accumulator)
 
@@ -113,11 +129,8 @@ class TrackerWorker(QThread):
                 # Keep the fractional remainder
                 accumulator -= seconds_passed
 
-            # UI logging (also monotonic, no drift)
-            if (
-                self.refresh_interval > 0
-                and (now - last_log_update) >= self.refresh_interval
-            ):
+            # UI logging
+            if self.refresh_interval > 0 and (now - last_log_update) >= self.refresh_interval:
                 self.log_message.emit(f"Session playtime: {self.format_time(self.session_playtime)}")
                 self.log_message.emit(f"Total playtime: {self.format_time(self.total_playtime)}")
                 last_log_update = now
@@ -162,20 +175,6 @@ class TrackerWorker(QThread):
         m = (seconds % 3600) // 60
         s = seconds % 60
         return f"{h}:{m:02d}:{s:02d}"
-
-    def cleanup(self):
-        """Saves final session data to log file on stop."""
-        session_end = datetime.datetime.now()
-        session_length = int((session_end - self.session_start).total_seconds())
-
-        start_str = self.session_start.strftime('%Y-%m-%d %H:%M:%S')
-        end_str = session_end.strftime('%Y-%m-%d %H:%M:%S')
-        self._persist_to_log()
-
-        # Show data
-        self.log_message.emit("Session logged: Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime")
-        self.log_message.emit(f"Session logged: {start_str}; {end_str}; {self.format_time(session_length)}; {self.format_time(self.session_playtime)}; {self.format_time(self.total_playtime)}")
-        self.log_message.emit(f"Log file modified: {self.log_file}")
 
     def _persist_to_log(self, session_current_end, final=False):
         """Writes current stats to the log. Overwrites the last line if session already started."""

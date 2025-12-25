@@ -30,7 +30,7 @@ class KdeUtils(DesktopUtilsInterface):
         });
         """
 
-        raw_out = self._run_kwin_raw(js_code)
+        raw_out = self._run_kwin_script(js_code)
         new_cache = {}
 
         for line in raw_out.splitlines():
@@ -45,8 +45,8 @@ class KdeUtils(DesktopUtilsInterface):
         self._window_cache = new_cache
         self._last_cache_update = now
 
-    def _run_kwin_raw(self, js_code):
-        """Minimal helper to execute JS and get journal output."""
+    def _run_kwin_script(self, js_code):
+        """ Helper to execute JS and get journal output."""
         script_name = f"tracker-{uuid.uuid4().hex[:8]}"
         start_time = "-2s"
         temp_path = None
@@ -77,24 +77,73 @@ class KdeUtils(DesktopUtilsInterface):
                 except: pass
 
     def get_active_window_id(self):
-        #print("\n--- Starting get_active_window_id ---")
+        """ Gets current KWin ID of focused window."""
         js = "print('ACT:' + workspace.activeWindow.internalId);"
-        out = self._run_kwin_raw(js)
+        out = self._run_kwin_script(js)
         for line in reversed(out.splitlines()):
             if "ACT:" in line: return line.split("ACT:")[-1].strip()
         return None
 
     def get_all_window_ids(self):
-        #print("\n--- Starting get_all_window_ids ---")
+        """ Gets all windows ids"""
         self._refresh_cache()
         return list(self._window_cache.keys())
 
     def get_window_name(self, wid):
-        #print("\n--- Starting get_window_name ---")
+        """ Gets name of a Window ID"""
         self._refresh_cache()
         return self._window_cache.get(wid, {}).get("name", "Unknown")
 
     def get_window_pid(self, wid):
-        #print("\n--- Starting get_window_pid ---")
+        """ Gets pid of a Window ID"""
         self._refresh_cache()
         return self._window_cache.get(wid, {}).get("pid", "0")
+
+    def find_window_id_by_title(self, target_title, dynamic=False):
+        """ Gets window ID of a window name."""
+        # Escaping the title for JS
+        safe_title = target_title.replace('"', '\\"')
+        
+        # KWin Script: Filters the window list and returns the internal ID
+        script = f"""
+        (function() {{
+            var target = "{safe_title}".toLowerCase();
+            var dynamic = {str(dynamic).lower()};
+            var windows = workspace.windowList();
+            var foundId = null;
+
+            for (var i = 0; i < windows.length; i++) {{
+                var w = windows[i];
+                
+                if (!w.normalWindow) continue;
+                
+                var title = w.caption.toLowerCase();
+                if (!title) continue;
+
+                if (dynamic) {{
+                    if (title.indexOf(target) !== -1 || 
+                        target.indexOf(title) !== -1 || 
+                        (title.length >= 15 && target.substring(0, 15) === title.substring(0, 15))) {{
+                        foundId = w.internalId;
+                        break;
+                    }}
+                }} else {{
+                    if (w.caption === "{safe_title}") {{
+                        foundId = w.internalId;
+                        break;
+                    }}
+                }}
+            }}
+            print("SEARCH_RESULT:" + foundId);
+        }})();
+        """
+
+        #print(f'find_window_id_by_title script: {script}')
+        
+        result = self._run_kwin_script(script)
+        #print(f'find_window_id_by_title result {result}')
+        for line in result.splitlines():
+            if "SEARCH_RESULT:" in line:
+                val = line.split("SEARCH_RESULT:")[1].strip()
+                return val if val != "null" else None
+        return None
