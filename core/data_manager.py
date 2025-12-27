@@ -52,7 +52,6 @@ class DataManager:
             return 0
 
     def get_stats_for_app(self, app_name):
-        # Returns (Total Hours, {Date: Hours})
         log_files = self.get_log_files()
         if app_name not in log_files: return 0, {}
 
@@ -66,11 +65,12 @@ class DataManager:
                     try:
                         date_obj = datetime.datetime.strptime(parts[0], "%Y-%m-%d %H:%M:%S").date()
                         seconds = self.parse_time(parts[3])
-                        total_seconds = self.parse_time(parts[4]) # Last line is cumulative usually
+                        # Ensure total_seconds captures the latest cumulative value
+                        total_seconds = self.parse_time(parts[4]) 
                         daily_data[date_obj] = daily_data.get(date_obj, 0) + (seconds / 3600)
                     except ValueError: continue
 
-        return (total_seconds / 3600), daily_data
+        return total_seconds, daily_data
 
     def get_log_content(self, app_name):
         """

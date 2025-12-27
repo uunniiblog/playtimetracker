@@ -48,16 +48,23 @@ class StatsTab(QWidget):
 
     def update_graph(self):
         app = self.app_combo.currentText()
-        total, daily_data = self.data.get_stats_for_app(app)
+        total_seconds, daily_data = self.data.get_stats_for_app(app)
 
-        self.info_label.setText(f"Total: {total:.2f} hours")
+        # Convert seconds to H:M:S
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        seconds = int(total_seconds % 60)
+        
+        time_str = f"Total: {hours}h {minutes}m {seconds}s"
+        self.info_label.setText(time_str)
+        
         self.figure.clear()
         ax = self.figure.add_subplot(111)
 
         if daily_data:
             dates = list(daily_data.keys())
-            hours = list(daily_data.values())
-            ax.bar(dates, hours, color='skyblue')
+            plot_hours = list(daily_data.values())
+            ax.bar(dates, plot_hours, color='skyblue')
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
             self.figure.autofmt_xdate()
 

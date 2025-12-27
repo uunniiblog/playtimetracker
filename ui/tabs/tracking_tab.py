@@ -89,6 +89,7 @@ class TrackingTab(QWidget):
 
     def append_log(self, text):
         """Inserts text at console."""
+
         scrollbar = self.console.verticalScrollBar()
         at_bottom = scrollbar.value() == scrollbar.maximum()
 
@@ -101,7 +102,7 @@ class TrackingTab(QWidget):
         cursor.insertText(text)
 
         if at_bottom:
-            self.console.ensureCursorVisible()
+            scrollbar.setValue(scrollbar.maximum())
 
     def append_partial_log(self, text):
         """Inserts text at the end of the console without a newline."""

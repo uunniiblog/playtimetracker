@@ -1,8 +1,8 @@
 # Playtime Tracker for Wayland KDE
 
-<img src="https://i.imgur.com/sojbcqP.png" alt="Alt text" width="70%"/>
+<img src="https://i.imgur.com/NfhVWQB.jpeg" alt="Alt text" width="70%"/>
 
-<img src="https://i.imgur.com/W3ixYMF.png" alt="Alt text" width="70%"/>
+<img src="https://i.imgur.com/tr1i6vX.jpeg" alt="Alt text" width="70%"/>
 
 This tool tracks game window focus time for more accurate playing time stats. This ensures time is only counted when the window is actually active.
 
