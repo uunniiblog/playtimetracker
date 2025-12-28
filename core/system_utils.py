@@ -4,8 +4,10 @@ class SystemUtils:
         if not utils: return False
         try:
             env_result = utils.get_process_environ(pid)
-            return "WINEPREFIX" in env_result or "STEAM_COMPAT_DATA_PATH" in env_result
-        except Exception:
+            # print(f'env_result: {env_result}')          
+            return ".exe" in env_result
+        except Exception as e:
+            print(f"[ERROR] is_wine_or_proton failed: {e}")
             return False
 
     @staticmethod
@@ -25,7 +27,6 @@ class SystemUtils:
 
                     if only_show_wine:
                         pid_str = utils.get_window_pid(wid)
-                        # Ensure we convert the PID string to int for the environ check
                         if pid_str and pid_str.isdigit() and SystemUtils.is_wine_or_proton(utils, int(pid_str)):
                             window_list.append((title, wid))
                     else:

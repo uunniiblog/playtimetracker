@@ -23,12 +23,17 @@ class DesktopUtilsInterface(ABC):
 
     @staticmethod
     def get_process_environ(pid):
-        """Standard for all Linux DEs, get enviroment vars of process"""
+        """Gets environment variables using ps eww {pid} command"""
         try:
-            environ_path = Path(f"/proc/{pid}/environ")
-            return environ_path.read_text() if environ_path.exists() else ""
+            result = subprocess.check_output(
+                ["ps", "eww", str(pid)], 
+                stderr=subprocess.DEVNULL, 
+                text=True
+            )
+            return result
         except Exception:
             return ""
+
     @staticmethod
     def get_pid_by_name(process_name):
         """
