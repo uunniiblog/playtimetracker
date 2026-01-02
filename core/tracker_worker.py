@@ -190,6 +190,11 @@ class TrackerWorker(QThread):
         )
 
         try:
+            # Check if we need to write the header 
+            if not self.log_file.exists() or self.log_file.stat().st_size == 0:
+                header = "Time session Start; Time Session finish; Session Length; Session Playtime; Total Playtime\n"
+                self.log_file.write_text(header, encoding="utf-8")
+
             if not self.session_line_exists:
                 # First time saving this session: Just append
                 with open(self.log_file, "a", encoding="utf-8") as f:
