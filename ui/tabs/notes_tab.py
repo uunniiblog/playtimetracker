@@ -1,3 +1,5 @@
+import config
+from core.log_manager import LogManager
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QTextEdit, QLabel
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QTimer
@@ -6,6 +8,7 @@ class NotesTab(QWidget):
     def __init__(self, data_manager):
         super().__init__()
         self.data = data_manager
+        self.log_manager = LogManager(config.LOG_DIR)
         self.setup_ui()
 
     def setup_ui(self):
@@ -40,8 +43,10 @@ class NotesTab(QWidget):
 
     def refresh_list(self):
         self.app_combo.clear()
-        logs = self.data.get_log_files()
-        self.app_combo.addItems(logs.keys())
+        logs = self.log_manager.get_apps_sorted_by_latest()
+        self.app_combo.addItems(logs)
+        self.app_combo.blockSignals(False)
+        self.load_note()
 
     def load_note(self):
         app = self.app_combo.currentText()

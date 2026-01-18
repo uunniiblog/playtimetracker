@@ -1,5 +1,6 @@
 import os
 from PyQt6.QtCore import QObject, QTimer
+from core.system_utils import SystemUtils
 
 class CliController(QObject):
     def __init__(self, main_window, tracker_service):
@@ -26,7 +27,7 @@ class CliController(QObject):
 
     def _attempt_auto_launch(self):
         utils = self.tracker.desktop_utils
-        pid = utils.get_pid_by_name(self.target_process)
+        pid = SystemUtils.get_pid_by_name(self.target_process)
         
         if not pid:
             print(".", end="", flush=True)

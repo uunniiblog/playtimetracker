@@ -1,215 +1,219 @@
+import config
+from core.log_manager import LogManager
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, 
     QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, 
-    QLabel, QAbstractItemView
+    QLabel, QScrollArea, QMenu
 )
-from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtCore import QTimer, Qt
+from pathlib import Path
 
 class LogsTab(QWidget):
     def __init__(self, data_manager):
         super().__init__()
         self.data = data_manager
+        self.log_manager = LogManager(config.LOG_DIR)
+        self.tables = [] 
         self.setup_ui()
 
     def setup_ui(self):
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+        self.main_layout = QVBoxLayout(self)
 
-        # --- Top Bar (Selector & Refresh) ---
-        top_layout = QHBoxLayout()
-        
+        # --- Top Controls ---
+        top_bar = QHBoxLayout()
         self.app_combo = QComboBox()
         self.app_combo.currentIndexChanged.connect(self.load_log)
-        top_layout.addWidget(self.app_combo, 1)
-
-        refresh_btn = QPushButton()
-        refresh_btn.setIcon(QIcon.fromTheme("view-refresh"))
-        refresh_btn.setFixedSize(36, 36)
+        top_bar.addWidget(self.app_combo, 1)
+        
+        refresh_btn = QPushButton("Refresh List")
         refresh_btn.clicked.connect(self.refresh_list)
-        top_layout.addWidget(refresh_btn)
-        
-        layout.addLayout(top_layout)
+        top_bar.addWidget(refresh_btn)
+        self.main_layout.addLayout(top_bar)
 
-        # --- Row Manipulation Controls ---
-        row_layout = QHBoxLayout()
-        
-        add_row_btn = QPushButton("Add New Entry")
-        add_row_btn.clicked.connect(self.add_row)
-        row_layout.addWidget(add_row_btn)
+        # --- Scroll Area ---
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.container = QWidget()
+        self.container_layout = QVBoxLayout(self.container)
+        self.scroll.setWidget(self.container)
+        self.main_layout.addWidget(self.scroll)
 
-        del_row_btn = QPushButton("Delete Selected Entry")
-        del_row_btn.clicked.connect(self.delete_row)
-        row_layout.addWidget(del_row_btn)
-
-        # Spacer to push the red button to the far right
-        row_layout.addStretch()
-
-        # Delete File Button (Red)
-        self.del_file_btn = QPushButton("Delete Entire Log File")
-        self.del_file_btn.setStyleSheet("background-color: #e74c3c; color: white; font-weight: bold;")
-        self.del_file_btn.clicked.connect(self.delete_entire_log)
-        row_layout.addWidget(self.del_file_btn)
-
-        layout.addLayout(row_layout)
-
-        # --- The Table ---
-        self.table = QTableWidget()
-        # Resize logic: Interactive headers, last column stretches
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setAlternatingRowColors(True)
-        # Allow selecting entire rows
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        layout.addWidget(self.table)
-
-        # --- Save Area ---
-        save_layout = QHBoxLayout()
+        # --- Bottom Buttons ---
+        btn_layout = QHBoxLayout()
         
         self.status = QLabel("")
         self.status.setStyleSheet("color: #2ecc71; font-weight: bold;")
-        self.status.setVisible(False)
-        save_layout.addWidget(self.status)
+        btn_layout.addWidget(self.status)
         
-        save_layout.addStretch()
+        btn_layout.addStretch()
 
-        self.save_btn = QPushButton("Save Changes")
-        self.save_btn.clicked.connect(self.save_log)
-        save_layout.addWidget(self.save_btn)
+        self.save_btn = QPushButton("Save All Changes")
+        self.save_btn.clicked.connect(self.save_all)
+        self.save_btn.setStyleSheet("padding: 8px 20px; font-weight: bold;")
+        btn_layout.addWidget(self.save_btn)
+        
+        self.main_layout.addLayout(btn_layout)
 
-        layout.addLayout(save_layout)
-
-        # Initial Load
         self.refresh_list()
 
     def refresh_list(self):
+        """Uses LogManager to get the latest updated apps."""
         current = self.app_combo.currentText()
         self.app_combo.blockSignals(True)
         self.app_combo.clear()
         
-        logs = self.data.get_log_files()
-        self.app_combo.addItems(logs.keys())
+        # Get apps from the JSON metadata cache
+        apps = self.log_manager.get_apps_sorted_by_latest()
+        self.app_combo.addItems(apps)
         
-        # Restore selection if it still exists
-        if current in logs:
+        if current in apps:
             self.app_combo.setCurrentText(current)
             
         self.app_combo.blockSignals(False)
-        
-        # Trigger load if we have items, else clear table
-        if self.app_combo.count() > 0:
-            self.load_log()
-        else:
-            self.table.clear()
-            self.table.setRowCount(0)
-            self.table.setColumnCount(0)
-            self.del_file_btn.setEnabled(False)
-            self.save_btn.setEnabled(False)
+        self.load_log()
 
     def load_log(self):
         app = self.app_combo.currentText()
+        
+        # Clear existing table widgets
+        for i in reversed(range(self.container_layout.count())): 
+            widget = self.container_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        
+        self.tables = []
         if not app: return
 
-        self.del_file_btn.setEnabled(True)
-        self.save_btn.setEnabled(True)
-        
-        headers, data = self.data.get_log_content(app)
+        grouped_logs = self.log_manager.get_grouped_logs_for_app(app)
+        headers = self.log_manager.header.strip().split(";")
 
-        self.table.clear()
-        self.table.setColumnCount(len(headers))
-        self.table.setRowCount(len(data))
-        self.table.setHorizontalHeaderLabels(headers)
-
-        for row_idx, row_data in enumerate(data):
-            for col_idx, text in enumerate(row_data):
-                if col_idx < len(headers):
-                    item = QTableWidgetItem(str(text))
-                    self.table.setItem(row_idx, col_idx, item)
-
-        self.status.setVisible(False)
-
-    def add_row(self):
-        """Adds an empty row at the bottom of the table."""
-        if self.table.columnCount() == 0:
-            QMessageBox.warning(self, "Error", "No log loaded to add rows to.")
+        if not grouped_logs:
+            self.container_layout.addWidget(QLabel("No logs found for this application."))
             return
+
+        for date_str, rows in grouped_logs.items():
+            date_label = QLabel(f"📅 {date_str}")
+            date_label.setStyleSheet("font-weight: bold; font-size: 13px; margin-top: 15px; color: #3498db;")
+            self.container_layout.addWidget(date_label)
+
+            table = QTableWidget(len(rows), len(headers))
+            table.setHorizontalHeaderLabels(headers)
+            table.setProperty("date_source", date_str) 
             
-        row_count = self.table.rowCount()
-        self.table.insertRow(row_count)
-        
-        for c in range(self.table.columnCount()):
-            self.table.setItem(row_count, c, QTableWidgetItem(""))
+            for r, row_data in enumerate(rows):
+                for c, text in enumerate(row_data):
+                    table.setItem(r, c, QTableWidgetItem(text))
+            
+            # --- FIXED SCROLL & HEIGHT LOGIC ---
+            
+            # Use Qt.ScrollBarPolicy instead of QAbstractItemView
+            table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            
+            # Improved height calculation
+            # Row height (30) * num rows + Header (35) + Scrollbar space (25)
+            row_count = table.rowCount()
+            calculated_height = (row_count * 30) + 65
+            
+            # Ensure 1-row entries aren't squashed (min 110), limit max to 400
+            final_height = max(110, min(400, calculated_height))
+            table.setFixedHeight(final_height)
+            
+            # Set a standard row height for consistency
+            table.verticalHeader().setDefaultSectionSize(30)
+            table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
 
-    def delete_row(self):
-        """Deletes the currently selected row(s)."""
-        rows = sorted(set(index.row() for index in self.table.selectedIndexes()), reverse=True)
+            # Enable right click
+            table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            table.customContextMenuRequested.connect(lambda pos, t=table: self.show_context_menu(pos, t))
+
+            self.container_layout.addWidget(table)
+            self.tables.append(table)
+
+        self.container_layout.addStretch()
+
+    def save_all(self):
+        """Iterates through all visible tables and updates each daily CSV."""
+        app_name = self.app_combo.currentText()
+        if not app_name: return
+
+        try:
+            for table in self.tables:
+                date_str = table.property("date_source")
+                
+                # Extract data from UI table
+                new_app_rows = []
+                for r in range(table.rowCount()):
+                    row_data = []
+                    for c in range(table.columnCount()):
+                        item = table.item(r, c)
+                        row_data.append(item.text() if item else "")
+                    new_app_rows.append(";".join(row_data))
+
+                # Update the file
+                self.update_daily_file(date_str, app_name, new_app_rows)
+
+            self.status.setText("✓ All files updated")
+            self.status.setVisible(True)
+            QTimer.singleShot(3000, lambda: self.status.setVisible(False))
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Failed to save: {e}")
+
+    def update_daily_file(self, date_str, app_name, new_app_rows):
+        """Helper to overwrite only specific app entries in a specific daily file."""
+        # Calculate file path from date_str (YYYY-MM-DD)
+        year_month = date_str[:7]
+        file_path = self.log_manager.log_dir / year_month / f"activity_{date_str}.csv"
         
-        if not rows:
-            QMessageBox.warning(self, "Selection Error", "Please select a row to delete.")
+        if not file_path.exists(): return
+
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        header = lines[0]
+        
+        # Keep rows belonging to OTHER apps
+        other_apps_data = [
+            line for line in lines[1:] 
+            if line.strip() and line.split(";")[4] != app_name
+        ]
+        
+        # Merge other apps with the edited rows for this app
+        final_lines = [header] + other_apps_data + new_app_rows
+        file_path.write_text("\n".join(final_lines) + "\n", encoding="utf-8")
+
+    def show_context_menu(self, pos, table):
+        """Displays a menu when right-clicking a row."""
+        menu = QMenu()
+        delete_action = QAction("🗑 Delete Selected Row(s)", self)
+        delete_action.triggered.connect(lambda: self.delete_selected_rows(table))
+        menu.addAction(delete_action)
+        menu.exec(table.mapToGlobal(pos))
+
+    def delete_selected_rows(self, table):
+        """Removes rows from the table and shrinks the table height."""
+        # Get selected unique row indices in reverse order
+        selected_items = table.selectedItems()
+        if not selected_items:
             return
+
+        rows_to_delete = sorted(list(set(item.row() for item in selected_items)), reverse=True)
 
         confirm = QMessageBox.question(
             self, "Confirm Delete", 
-            f"Are you sure you want to delete {len(rows)} entries?",
+            f"Are you sure you want to remove {len(rows_to_delete)} entry(s)?\n\nNote: Changes are only permanent after clicking 'Save All Changes'.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        
-        if confirm == QMessageBox.StandardButton.Yes:
-            for r in rows:
-                self.table.removeRow(r)
 
-    def delete_entire_log(self):
-        """Deletes the physical file and refreshes the list."""
-        app = self.app_combo.currentText()
-        if not app: return
-
-        confirm = QMessageBox.warning(
-            self, "Delete Log File", 
-            f"Are you sure you want to PERMANENTLY delete the log file for:\n\n{app}\n\nThis cannot be undone.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
         if confirm == QMessageBox.StandardButton.Yes:
-            success = self.data.delete_log_file(app)
-            if success:
-                self.status.setText(f"File deleted: {app}")
-                self.status.setVisible(True)
-                self.refresh_list()
+            for row in rows_to_delete:
+                table.removeRow(row)
+            
+            # Re-calculate height so the UI shrinks nicely
+            new_row_count = table.rowCount()
+            if new_row_count == 0:
+                # If no rows left for this day, we could hide the table or just make it small
+                table.setFixedHeight(65) 
             else:
-                QMessageBox.critical(self, "Error", "Could not delete file.")
-
-    def save_log(self):
-        app = self.app_combo.currentText()
-        if not app: return
-
-        # Scrape Headers
-        headers = []
-        for c in range(self.table.columnCount()):
-            item = self.table.horizontalHeaderItem(c)
-            headers.append(item.text() if item else "")
-
-        # Scrape Data
-        data = []
-        for r in range(self.table.rowCount()):
-            row_items = []
-            for c in range(self.table.columnCount()):
-                item = self.table.item(r, c)
-                row_items.append(item.text() if item else "")
-            data.append(row_items)
-
-        # Save via DataManager
-        success = self.data.save_log_content(app, headers, data)
-
-        if success:
-            self.status.setText(f"✓ Log updated for {app}")
-            self.status.setVisible(True)
-            self.save_btn.setText("Saved!")
-            self.save_btn.setEnabled(False)
-            QTimer.singleShot(2000, self.reset_feedback)
-        else:
-            QMessageBox.critical(self, "Error", "Failed to save log file!")
-
-    def reset_feedback(self):
-        self.status.setVisible(False)
-        self.save_btn.setText("Save Changes")
-        self.save_btn.setEnabled(True)
+                new_height = max(110, min(400, (new_row_count * 30) + 65))
+                table.setFixedHeight(new_height)

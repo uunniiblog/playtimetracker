@@ -99,7 +99,7 @@ class KdeUtils(DesktopUtilsInterface):
         self._refresh_cache()
         return self._window_cache.get(wid, {}).get("pid", "0")
 
-    def find_window_id_by_title(self, target_title, dynamic=False):
+    def find_window_id_by_title(self, target_title):
         """ Gets window ID of a window name."""
         # Escaping the title for JS
         safe_title = target_title.replace('"', '\\"')
@@ -107,31 +107,19 @@ class KdeUtils(DesktopUtilsInterface):
         # KWin Script: Filters the window list and returns the internal ID
         script = f"""
         (function() {{
-            var target = "{safe_title}".toLowerCase();
-            var dynamic = {str(dynamic).lower()};
             var windows = workspace.windowList();
             var foundId = null;
 
             for (var i = 0; i < windows.length; i++) {{
                 var w = windows[i];
                 
+                // Skip non-normal windows (panels, desktops, etc)
                 if (!w.normalWindow) continue;
                 
-                var title = w.caption.toLowerCase();
-                if (!title) continue;
-
-                if (dynamic) {{
-                    if (title.indexOf(target) !== -1 || 
-                        target.indexOf(title) !== -1 || 
-                        (title.length >= 15 && target.substring(0, 15) === title.substring(0, 15))) {{
-                        foundId = w.internalId;
-                        break;
-                    }}
-                }} else {{
-                    if (w.caption === "{safe_title}") {{
-                        foundId = w.internalId;
-                        break;
-                    }}
+                // Check for exact caption match
+                if (w.caption === "{safe_title}") {{
+                    foundId = w.internalId;
+                    break;
                 }}
             }}
             print("SEARCH_RESULT:" + foundId);

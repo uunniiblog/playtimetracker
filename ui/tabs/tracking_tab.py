@@ -35,9 +35,6 @@ class TrackingTab(QWidget):
         self.wine_check = QCheckBox("Only Show Wine Processes")
         self.wine_check.stateChanged.connect(self.refresh_list)
         check_layout.addWidget(self.wine_check)
-
-        self.dynamic_check = QCheckBox("Dynamic Title Window")
-        check_layout.addWidget(self.dynamic_check)
         layout.addLayout(check_layout)
 
         # Controls
@@ -50,6 +47,10 @@ class TrackingTab(QWidget):
         self.stop_btn.setEnabled(False)
         layout.addWidget(self.stop_btn)
 
+        self.bg_btn = QPushButton("Background Tracking")
+        self.bg_btn.clicked.connect(self.background_tracking)
+        layout.addWidget(self.bg_btn)
+
         # Console
         self.console = QTextEdit()
         self.console.setReadOnly(True)
@@ -57,8 +58,7 @@ class TrackingTab(QWidget):
 
         # Initial Load
         self.wine_check.setChecked(bool(self.data.settings.get('ENABLE_ONLY_WINE', 0)))
-        self.dynamic_check.setChecked(bool(self.data.settings.get('ENABLE_DYNAMIC_TITLE', 0)))
-
+        
     def refresh_list(self):
         self.window_combo.clear()
         utils = self.tracker.desktop_utils
@@ -72,11 +72,21 @@ class TrackingTab(QWidget):
         if not app: return
 
         self.start_btn.setEnabled(False)
+        self.bg_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
 
         refresh_timer = self.data.settings.get('LOG_REFRESH_TIMER', 0)
         save_time = self.data.settings.get('LOG_PERIODIC_SAVE', 0)
-        self.tracker.start_tracking(app, refresh_timer, save_time, self.dynamic_check.isChecked())
+        self.tracker.start_tracking(app, refresh_timer, save_time)
+
+    def background_tracking(self):
+        self.start_btn.setEnabled(False)
+        self.bg_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+
+        refresh_timer = self.data.settings.get('LOG_REFRESH_TIMER', 0)
+        save_time = self.data.settings.get('LOG_PERIODIC_SAVE', 0)
+        self.tracker.background_tracking(refresh_timer, save_time)
 
     def stop_tracking(self):
         self.console.append("Stopping tracking...")
@@ -84,6 +94,7 @@ class TrackingTab(QWidget):
 
     def on_tracking_finished(self):
         self.start_btn.setEnabled(True)
+        self.bg_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.console.append("Tracking stopped.")
 
