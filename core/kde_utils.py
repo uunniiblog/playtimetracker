@@ -4,6 +4,7 @@ import subprocess
 import uuid
 import tempfile
 import os
+from core.system_utils import SystemUtils
 from core.desktop_utils_interface import DesktopUtilsInterface
 
 class KdeUtils(DesktopUtilsInterface):
@@ -144,5 +145,58 @@ class KdeUtils(DesktopUtilsInterface):
         for wid, info in self._window_cache.items():
             if str(info.get('pid')) == target_pid:
                 return wid, info.get('name')
+
+        # If it doesn't find window by pid search by process. Useful for gamescope
+        target_exe = SystemUtils.get_exe_name_from_cmdline(target_pid)
+        #print(f'target_exe {target_exe}')
+        return self.find_window_by_process_name(target_exe)
+
+
+
+        #for wid, info in self._window_cache.items():
+        #    w_pid = info.get('pid')
+        #    w_cmdline = SystemUtils.get_full_cmdline(w_pid)
+        #    
+        #    if target_exe.lower() in w_cmdline.lower():
+        #        print(f"Match found via cmdline search: {target_exe} in PID {w_pid}")
+        #        return wid, info.get('name')
+
+
+        print("No match found in find_window_by_pid")
+        return None, None
+
+    def find_window_by_process_name(self, target_exe):
+        """
+        TODO: improve this shit
+        Finds the window by looking for the target_pid's presence 
+        in the command lines of window-owning processes.
+        """
+
+        self._refresh_cache()
+    
+        # Filter valid PIDs from cache
+        window_owner_pids = {
+            str(info.get('pid')) for info in self._window_cache.values() 
+            if info.get('pid') and str(info.get('pid')) not in ('0', '')
+        }
+
+        target_exe_lower = target_exe.lower()
+        bridge_pid = None
+
+        # print(f"Searching across {len(window_owner_pids)} window-owning PIDs: {window_owner_pids}")
+
+        for w_pid in window_owner_pids:
+            # print(f'w_pid {w_pid}')
+            w_cmdline = SystemUtils.get_full_cmdline(w_pid)
+            
+            if target_exe_lower in w_cmdline.lower():
+                bridge_pid = w_pid
+                break 
+        
+        if bridge_pid:
+            for wid, info in self._window_cache.items():
+                if str(info.get('pid')) == bridge_pid:
+                    # print(f"Deep match: Found {target_exe} linked to Window '{info.get('name')}' (PID {bridge_pid})")
+                    return wid, info.get('name')
 
         return None, None

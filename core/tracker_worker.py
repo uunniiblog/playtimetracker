@@ -21,7 +21,9 @@ class TrackerWorker(QThread):
         # Find executable
         if self.target_window_id:
             active_pid = self.utils.get_window_pid(self.target_window_id)
+            # print(f'active_pid {active_pid}')
             self.process_name = SystemUtils.get_app_name_from_pid(active_pid)
+            # print(f'self.process_name {self.process_name}')
         else:
             self.log_message.emit(f"Could not find Application window ID for: {app_name}")
             return
@@ -57,6 +59,7 @@ class TrackerWorker(QThread):
 
             # Looks up if new PID exists
             new_pid = SystemUtils.get_pid_by_name(self.process_name)
+            #print(f'new_pid {new_pid}')
             if new_pid:
                 new_wid = self.utils.find_window_by_pid(new_pid)
                 if new_wid:

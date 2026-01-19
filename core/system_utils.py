@@ -142,3 +142,22 @@ class SystemUtils:
             return cmd_parts[0] if cmd_parts else "Unknown"
         except Exception:
             return "Unknown"
+
+    @staticmethod
+    def get_exe_name_from_cmdline( pid):
+        """Extracts the filename from /proc/pid/cmdline (handles Windows and Linux paths)."""
+        try:
+            with open(f"/proc/{pid}/cmdline", "r") as f:
+                full_path = f.read().split('\0')[0]
+                return ntpath.basename(full_path)
+        except:
+            return None
+    
+    @staticmethod
+    def get_full_cmdline(pid):
+        """Gets the full command line for a PID."""
+        try:
+            with open(f"/proc/{pid}/cmdline", "r") as f:
+                return f.read().replace('\0', ' ')
+        except:
+            return ""
