@@ -161,9 +161,10 @@ class LogsTab(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save: {e}")
 
-    def update_daily_file(self, date_str, app_name, new_app_rows):
-        """Helper to overwrite only specific app entries in a specific daily file."""
-        # Calculate file path from date_str (YYYY-MM-DD)
+    def update_daily_file(self, date_str, combined_name, new_app_rows):
+        """Helper to overwrite only specific app entries."""
+        app_process = self.log_manager._extract_process(combined_name)
+        
         year_month = date_str[:7]
         file_path = self.log_manager.log_dir / year_month / f"activity_{date_str}.csv"
         
@@ -172,13 +173,12 @@ class LogsTab(QWidget):
         lines = file_path.read_text(encoding="utf-8").splitlines()
         header = lines[0]
         
-        # Keep rows belonging to OTHER apps
+        # Keep rows belonging to OTHER apps by comparing with app_process
         other_apps_data = [
             line for line in lines[1:] 
-            if line.strip() and line.split(";")[4] != app_name
+            if line.strip() and line.split(";")[4] != app_process
         ]
         
-        # Merge other apps with the edited rows for this app
         final_lines = [header] + other_apps_data + new_app_rows
         file_path.write_text("\n".join(final_lines) + "\n", encoding="utf-8")
 

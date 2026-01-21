@@ -50,16 +50,18 @@ class NotesTab(QWidget):
 
     def load_note(self):
         app = self.app_combo.currentText()
-        content = self.data.get_note(app)
+        process = self.log_manager._extract_process(app)
+        content = self.data.get_note(process)
         self.editor.setPlainText(content)
         self.status.setVisible(False)
 
     def save_note(self):
         app = self.app_combo.currentText()
+        process = self.log_manager._extract_process(app)
         if app:
-            self.data.save_note(app, self.editor.toPlainText())
+            self.data.save_note(process, self.editor.toPlainText())
 
-            self.status.setText(f"✓ Note saved for {app}")
+            self.status.setText(f"✓ Note saved for {process}")
             self.status.setVisible(True)
 
             self.save_btn.setText("Saved!")

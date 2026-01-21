@@ -58,7 +58,7 @@ class LogManager:
                 # Append new session
                 with open(log_file, "a", encoding="utf-8") as f:
                     f.write(line)
-                self._update_last_played_cache(session_data['app'])
+                self._update_last_played_cache(session_data['app'], session_data['title'])
             else:
                 # Overwrite the last line (Periodic Save)
                 content = log_file.read_text(encoding="utf-8").splitlines()
@@ -111,6 +111,8 @@ class LogManager:
         total_seconds = 0
         daily_data = {} # {date: total_hours_that_day}
 
+        process = self._extract_process(app_name)
+
         # Recursively find all activity files
         for log_file in self.log_dir.rglob("activity_*.csv"):
             try:
@@ -118,7 +120,7 @@ class LogManager:
                 for line in lines[1:]:
                     parts = line.split(";")
                     # Check if the App column (4) matches
-                    if len(parts) >= 5 and parts[4] == app_name:
+                    if len(parts) >= 5 and parts[4] == process:
                         # 1. Parse Date from Start Timestamp
                         dt_obj = datetime.datetime.strptime(parts[0], "%Y-%m-%d %H:%M:%S")
                         date_key = dt_obj.date()
@@ -135,7 +137,7 @@ class LogManager:
         sorted_daily = dict(sorted(daily_data.items()))
         return total_seconds, sorted_daily
 
-    def _update_last_played_cache(self, app_name):
+    def _update_last_played_cache(self, app_name, title):
         """Updates the timestamp in the hidden JSON cache."""
         cache = {}
         if self.metadata_file.exists():
@@ -143,11 +145,14 @@ class LogManager:
                 cache = json.loads(self.metadata_file.read_text(encoding="utf-8"))
             except Exception: pass
         
-        # Store the current time as the 'last seen' marker
-        cache[app_name] = datetime.datetime.now().isoformat()
+        # Store clean App Name as Key, but save Title inside
+        cache[app_name] = {
+            "time": datetime.datetime.now().isoformat(),
+            "last_title": title
+        }
         
         with open(self.metadata_file, "w", encoding="utf-8") as f:
-            json.dump(cache, f, indent=4)
+            json.dump(cache, f, indent=4, ensure_ascii=False)
 
     def get_apps_sorted_by_latest(self):
         """Returns app names sorted by their last played timestamp."""
@@ -158,17 +163,21 @@ class LogManager:
         try:
             cache = json.loads(self.metadata_file.read_text(encoding="utf-8"))
             # Sort keys by their ISO timestamp values in reverse
-            sorted_apps = sorted(cache.keys(), key=lambda x: cache[x], reverse=True)
-            return sorted_apps
-        except Exception:
+            sorted_apps = sorted(cache.items(), key=lambda x: x[1]['time'], reverse=True)
+            return [f"{data['last_title']} - {app}" for app, data in sorted_apps]
+        except Exception as e:
+            print(f"[LOG ERROR] {e}")
             return self.get_all_tracked_apps()
 
-    def get_grouped_logs_for_app(self, app_name):
+    def get_grouped_logs_for_app(self, combined_name):
         """
         Returns an OrderedDict: { "2026-01-18": [rows], "2026-01-17": [rows] }
         """
         from collections import OrderedDict
         grouped_data = {}
+
+        # FIX: Extract the actual exe name before searching
+        target_process = self._extract_process(combined_name)
 
         for log_file in self.log_dir.rglob("activity_*.csv"):
             try:
@@ -181,7 +190,7 @@ class LogManager:
                 day_rows = []
                 for line in lines[1:]:
                     parts = line.split(";")
-                    if len(parts) >= 5 and parts[4] == app_name:
+                    if len(parts) >= 5 and parts[4] == target_process:
                         day_rows.append(parts)
                 
                 if day_rows:
@@ -190,3 +199,10 @@ class LogManager:
             
         # Sort by date descending
         return OrderedDict(sorted(grouped_data.items(), reverse=True))
+
+    def _extract_process(self, combined_name):
+        """Helper to get process from title"""
+        if not combined_name: return ""
+        if " - " in combined_name:
+            return combined_name.rsplit(" - ", 1)[-1].strip()
+        return combined_name.strip()

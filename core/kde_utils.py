@@ -151,17 +151,6 @@ class KdeUtils(DesktopUtilsInterface):
         #print(f'target_exe {target_exe}')
         return self.find_window_by_process_name(target_exe)
 
-
-
-        #for wid, info in self._window_cache.items():
-        #    w_pid = info.get('pid')
-        #    w_cmdline = SystemUtils.get_full_cmdline(w_pid)
-        #    
-        #    if target_exe.lower() in w_cmdline.lower():
-        #        print(f"Match found via cmdline search: {target_exe} in PID {w_pid}")
-        #        return wid, info.get('name')
-
-
         print("No match found in find_window_by_pid")
         return None, None
 
