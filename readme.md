@@ -18,6 +18,7 @@ Ensure the following tools are installed on your system:
 - **PyQt6**
 - **Systemd** (Used for KWin log parsing)
 - **dbus-python** (Used or KWin calls)
+- **swayidle** (Optional. For AFK detection)
 
 ---
 

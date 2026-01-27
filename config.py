@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-VERSION = 'v2026-01-18'
+VERSION = 'v2026-01-27'
 GIT_URL = 'https://github.com/uunniiblog/playtimetracker'
 
 # Paths
@@ -10,6 +10,7 @@ SCRIPT_DIR = BASE_DIR
 SETTINGS_FILE = BASE_DIR / "settings.ini"
 LOG_DIR = BASE_DIR / "log"
 NOTES_DIR = BASE_DIR / "notes"
+AFK_FILE = Path("/tmp/timetracker_afk_detection_file")
 
 # Ensure directories exist
 LOG_DIR.mkdir(parents=True, exist_ok=True)

@@ -9,7 +9,7 @@ from core.log_manager import LogManager
 class TrackerWorker(QThread):
     log_message = pyqtSignal(str)
 
-    def __init__(self, app_name, refresh_interval, save_interval, desktop_utils):
+    def __init__(self, app_name, refresh_interval, save_interval, afk_timer, desktop_utils):
         super().__init__()
 
         self.utils = desktop_utils
@@ -35,6 +35,7 @@ class TrackerWorker(QThread):
 
         self.refresh_interval = int(refresh_interval)
         self.save_interval = int(save_interval) * 60
+        self.afk_timer = int(afk_timer) * 60
         
         self.running = True
         self.session_line_exists = False
@@ -90,6 +91,12 @@ class TrackerWorker(QThread):
         self.log_message.emit(f"Starting tracking for: {self.app_name} - {self.process_name} - {self.target_window_id}")
         self.log_message.emit(f"Starting playtime: {self.logger.format_duration(self.total_playtime)}")
 
+        # Launch swayidle afk detection
+        if self.afk_timer > 0:
+            SystemUtils.start_afk_daemon(self.afk_timer)
+
+        was_afk = False
+
         last_tick = time.monotonic()
         last_log_update = last_tick
         last_save_time = last_tick
@@ -117,34 +124,47 @@ class TrackerWorker(QThread):
                 elif not window_currently_open and is_open:
                     self.log_message.emit(f"'{self.process_name}' detected again with new ID {self.target_window_id}. Resuming tracking.")
                     window_currently_open = True
+
+                # AFK check
+                is_afk, idle_time = SystemUtils.get_afk_status()
+
+                if is_afk and not was_afk:
+                    self.log_message.emit("Status: AFK (Tracking paused)")
+                    was_afk = True
+                elif not is_afk and was_afk:
+                    self.log_message.emit("Status: Resumed (Back from AFK)")
+                    was_afk = False
                 
                 last_existence_check = now
-
-            # Increment timer every second if focused
+                
+            # Increment timer every second if focused and not AFK
             if accumulator >= 1.0:
                 seconds_passed = int(accumulator)
 
-                if self.is_game_focused():
-                    self.total_playtime += seconds_passed
-                    self.session_playtime += seconds_passed
+                if window_currently_open and not is_afk:
+                    if self.is_game_focused():
+                        self.total_playtime += seconds_passed
+                        self.session_playtime += seconds_passed
 
                 # Keep the fractional remainder
                 accumulator -= seconds_passed
 
             # UI logging
-            if self.refresh_interval > 0 and (now - last_log_update) >= self.refresh_interval:
+            if self.refresh_interval > 0 and (now - last_log_update) >= self.refresh_interval and window_currently_open and not is_afk:
                 self.log_message.emit(f"Session playtime: {self.logger.format_duration(self.session_playtime)}")
                 self.log_message.emit(f"Total playtime: {self.logger.format_duration(self.total_playtime)}")
                 last_log_update = now
 
             # Periodic Save
-            if self.save_interval > 0 and (now - last_save_time) >= self.save_interval:
+            if self.save_interval > 0 and (now - last_save_time) >= self.save_interval and window_currently_open and not is_afk:
                 self._trigger_log_save()
                 last_save_time = now
 
             # Small sleep to reduce CPU usage
             time.sleep(0.1)
 
+        # Stop swayidle
+        SystemUtils.stop_afk_daemon()
         # Persist session on exit
         self._trigger_log_save(is_final=True)
 

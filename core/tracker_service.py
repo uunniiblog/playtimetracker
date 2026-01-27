@@ -16,7 +16,7 @@ class TrackerService(QObject):
             print(f"Critical Startup Error: {e}")
             self.desktop_utils = None
 
-    def start_tracking(self, app_name, refresh_timer, save_interval):
+    def start_tracking(self, app_name, refresh_timer, save_interval, afk_timer):
         if not self.desktop_utils:
             self.log_received.emit("ERROR: Desktop utilities not initialized.")
             return
@@ -25,7 +25,7 @@ class TrackerService(QObject):
         if self.worker and self.worker.isRunning():
             self.stop_tracking()
 
-        self.worker = TrackerWorker(app_name, refresh_timer, save_interval, self.desktop_utils)
+        self.worker = TrackerWorker(app_name, refresh_timer, save_interval, afk_timer, self.desktop_utils)
         self.worker.log_message.connect(self.log_received.emit)
         self.worker.finished.connect(self.tracking_finished.emit)
 

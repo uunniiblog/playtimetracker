@@ -6,7 +6,7 @@ from collections import OrderedDict
 
 class DataManager:
     def __init__(self):
-        self.settings = {'LOG_REFRESH_TIMER': 0, 'ENABLE_ONLY_WINE': 0, 'ENABLE_DYNAMIC_TITLE': 0, 'LOG_PERIODIC_SAVE': 0}
+        self.settings = {'LOG_REFRESH_TIMER': 0, 'ENABLE_ONLY_WINE': 0, 'LOG_PERIODIC_SAVE': 0, 'AFK_TIMER': 0}
         self.load_settings()
 
     def load_settings(self):

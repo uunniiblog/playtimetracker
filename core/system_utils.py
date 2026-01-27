@@ -1,9 +1,14 @@
 import subprocess
 import os
 import ntpath
+import shutil
+import time
+import config
 from pathlib import Path
 
 class SystemUtils:
+    _afk_process = None
+
     @staticmethod
     def is_wine_or_proton(pid):
         try:
@@ -161,3 +166,61 @@ class SystemUtils:
                 return f.read().replace('\0', ' ')
         except:
             return ""
+
+    @staticmethod
+    def is_swayidle_installed():
+        return shutil.which("swayidle") is not None
+
+    @staticmethod
+    def start_afk_daemon(timeout_seconds):
+        """Launches the swayidle observer in the background."""
+        if not SystemUtils.is_swayidle_installed():
+            print("[AFK] swayidle not found. AFK detection disabled.")
+            return None
+
+        # Clean up any leftover files
+        if config.AFK_FILE.exists():
+            config.AFK_FILE.unlink()
+
+        cmd = [
+            "swayidle", "-w",
+            "timeout", str(timeout_seconds), f"date +%s > {config.AFK_FILE}",
+            "resume", f"rm -f {config.AFK_FILE}"
+        ]
+
+        try:
+            # We use Popen so it runs non-blocking in the background
+            SystemUtils._afk_process = subprocess.Popen(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            print(f"[AFK] Observer started (Threshold: {timeout_seconds}s)")
+            return SystemUtils._afk_process
+        except Exception as e:
+            print(f"[AFK] Failed to start swayidle: {e}")
+            return None
+
+    @staticmethod
+    def stop_afk_daemon():
+        """Kills the background swayidle process."""
+        if SystemUtils._afk_process:
+            SystemUtils._afk_process.terminate()
+            SystemUtils._afk_process.wait()
+            SystemUtils._afk_process = None
+        
+        if config.AFK_FILE.exists():
+            config.AFK_FILE.unlink()
+
+    @staticmethod
+    def get_afk_status():
+        """
+        Returns (is_afk, idle_duration_seconds).
+        duration is 0 if not AFK.
+        """
+        if not config.AFK_FILE.exists():
+            return False, 0
+
+        try:
+            start_time = int(config.AFK_FILE.read_text().strip())
+            return True, int(time.time() - start_time)
+        except:
+            return False, 0

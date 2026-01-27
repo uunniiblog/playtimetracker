@@ -77,7 +77,8 @@ class TrackingTab(QWidget):
 
         refresh_timer = self.data.settings.get('LOG_REFRESH_TIMER', 0)
         save_time = self.data.settings.get('LOG_PERIODIC_SAVE', 0)
-        self.tracker.start_tracking(app, refresh_timer, save_time)
+        afk_timer = self.data.settings.get('AFK_TIMER', 0)
+        self.tracker.start_tracking(app, refresh_timer, save_time, afk_timer)
 
     def background_tracking(self):
         self.start_btn.setEnabled(False)
