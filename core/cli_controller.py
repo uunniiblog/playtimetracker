@@ -3,14 +3,25 @@ from PyQt6.QtCore import QObject, QTimer
 from core.system_utils import SystemUtils
 
 class CliController(QObject):
-    def __init__(self, main_window, tracker_service):
+    def __init__(self, main_window, tracker_service, data_manager):
         super().__init__()
         self.window = main_window
         self.tracker = tracker_service
+        self.data = data_manager
         self.auto_timer = None
         self.target_process = None
 
     def handle_args(self, args):
+        if args.background:
+            print("Launching in Background Mode...")
+
+            refresh = self.data.settings.get('REFRESH_INTERVAL', 5)
+            save = self.data.settings.get('SAVE_INTERVAL', 60)
+            afk = self.data.settings.get('AFK_TIMER', 0)
+
+            self.tracker.background_tracking(refresh, save, afk)
+            return
+
         if args.target:
             self.start_auto_tracking(args.target)
 

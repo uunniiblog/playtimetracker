@@ -26,5 +26,12 @@ class CliHandler:
             help="Show the application version and exit."
         )
 
+        # Background tracking
+        self.parser.add_argument(
+            "-b", "--background",
+            action="store_true",
+            help="Start tracking all applications in background mode no UI."
+        )
+
     def parse(self):
         return self.parser.parse_args()

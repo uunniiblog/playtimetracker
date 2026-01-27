@@ -9,7 +9,7 @@ from core.kde_utils import KdeUtils
 class TrackerBgWorker(QThread):
     log_message = pyqtSignal(str)
 
-    def __init__(self, refresh_interval, save_interval, desktop_utils):
+    def __init__(self, refresh_interval, save_interval, afk_timer, desktop_utils):
         super().__init__()
         self.utils = desktop_utils
         print("not implemented")

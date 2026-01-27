@@ -36,7 +36,7 @@ class TrackerService(QObject):
 
         self.worker.start()
 
-    def background_tracking(self, refresh_timer, save_interval):
+    def background_tracking(self, refresh_timer, save_interval, afk_timer):
         if not self.desktop_utils:
             self.log_received.emit("ERROR: Desktop utilities not initialized.")
             return
@@ -45,7 +45,7 @@ class TrackerService(QObject):
         if self.worker and self.worker.isRunning():
             self.stop_tracking()
 
-        self.worker = TrackerBgWorker(refresh_timer, save_interval, self.desktop_utils)
+        self.worker = TrackerBgWorker(refresh_timer, save_interval, afk_timer, self.desktop_utils)
         self.worker.log_message.connect(self.log_received.emit)
         self.worker.finished.connect(self.tracking_finished.emit)
         self.worker.start()    
