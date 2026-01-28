@@ -1,4 +1,5 @@
 import sys
+import signal
 import ctypes
 import ctypes.util
 from PyQt6.QtWidgets import QApplication
@@ -14,6 +15,7 @@ def main():
     args = cli.parse()
     
     app = QApplication(sys.argv)
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     data_manager = DataManager()
     tracker_service = TrackerService()

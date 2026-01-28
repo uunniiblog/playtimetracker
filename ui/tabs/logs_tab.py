@@ -77,10 +77,14 @@ class LogsTab(QWidget):
         app = self.app_combo.currentText()
         
         # Clear existing table widgets
-        for i in reversed(range(self.container_layout.count())): 
-            widget = self.container_layout.itemAt(i).widget()
+        while self.container_layout.count():
+            item = self.container_layout.takeAt(0)
+            widget = item.widget()
             if widget:
-                widget.setParent(None)
+                widget.deleteLater() # Better than setParent(None) for memory
+        
+        # Force the layout to align to the TOP 
+        self.container_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
         self.tables = []
         if not app: return
@@ -104,9 +108,7 @@ class LogsTab(QWidget):
             for r, row_data in enumerate(rows):
                 for c, text in enumerate(row_data):
                     table.setItem(r, c, QTableWidgetItem(text))
-            
-            # --- FIXED SCROLL & HEIGHT LOGIC ---
-            
+                        
             # Use Qt.ScrollBarPolicy instead of QAbstractItemView
             table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -131,7 +133,7 @@ class LogsTab(QWidget):
             self.container_layout.addWidget(table)
             self.tables.append(table)
 
-        self.container_layout.addStretch()
+        self.container_layout.addStretch(1)
 
     def save_all(self):
         """Iterates through all visible tables and updates each daily CSV."""

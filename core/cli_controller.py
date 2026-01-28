@@ -15,8 +15,8 @@ class CliController(QObject):
         if args.background:
             print("Launching in Background Mode...")
 
-            refresh = self.data.settings.get('REFRESH_INTERVAL', 5)
-            save = self.data.settings.get('SAVE_INTERVAL', 60)
+            refresh = self.data.settings.get('LOG_REFRESH_TIMER', 60)
+            save = self.data.settings.get('LOG_PERIODIC_SAVE', 5)
             afk = self.data.settings.get('AFK_TIMER', 0)
 
             self.tracker.background_tracking(refresh, save, afk)

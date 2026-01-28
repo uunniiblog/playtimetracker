@@ -1,7 +1,8 @@
 import os
-import datetime
 import json
+import csv
 from pathlib import Path
+from datetime import datetime, timedelta
 
 class LogManager:
     def __init__(self, log_dir):
@@ -106,36 +107,39 @@ class LogManager:
             except Exception: continue
         return sorted(list(apps))
 
-    def get_stats_for_app(self, app_name):
-        """Calculates total seconds and daily breakdown for a specific app."""
+    def get_stats_for_app(self, combined_name):
+        """Returns total_seconds and a dict of {date: hours} for the individual graph."""
         total_seconds = 0
-        daily_data = {} # {date: total_hours_that_day}
+        daily_data = {}
 
-        process = self._extract_process(app_name)
+        # Extract actual process name
+        target_process = self._extract_process(combined_name)
+        if not target_process:
+            return 0, {}
 
-        # Recursively find all activity files
         for log_file in self.log_dir.rglob("activity_*.csv"):
             try:
-                lines = log_file.read_text(encoding="utf-8").splitlines()
-                for line in lines[1:]:
-                    parts = line.split(";")
-                    # Check if the App column (4) matches
-                    if len(parts) >= 5 and parts[4] == process:
-                        # 1. Parse Date from Start Timestamp
-                        dt_obj = datetime.datetime.strptime(parts[0], "%Y-%m-%d %H:%M:%S")
-                        date_key = dt_obj.date()
+                with open(log_file, mode='r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f, delimiter=';')
+                    for row in reader:
+                        # Match the process name column
+                        if row.get('App') == target_process:
+                            active_time_str = row.get('ActiveTime', '0:0:0')
+                            seconds = self._duration_to_seconds(active_time_str)
+                            total_seconds += seconds
 
-                        # 2. Parse ActiveTime (Index 3)
-                        h, m, s = map(int, parts[3].split(":"))
-                        seconds = h * 3600 + m * 60 + s
-                        
-                        total_seconds += seconds
-                        daily_data[date_key] = daily_data.get(date_key, 0) + (seconds / 3600)
-            except Exception: continue
+                            # Group by date for the graph
+                            try:
+                                date_str = row['Timestamp_Start'].split(' ')[0]
+                                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                                daily_data[date_obj] = daily_data.get(date_obj, 0) + (seconds / 3600)
+                            except (KeyError, ValueError):
+                                continue
+            except Exception as e:
+                print(f"[LOG ERROR] Error reading {log_file}: {e}")
+                continue
 
-        # Sort daily data by date for the graph
-        sorted_daily = dict(sorted(daily_data.items()))
-        return total_seconds, sorted_daily
+        return total_seconds, daily_data
 
     def _update_last_played_cache(self, app_name, title):
         """Updates the timestamp in the hidden JSON cache."""
@@ -147,7 +151,7 @@ class LogManager:
         
         # Store clean App Name as Key, but save Title inside
         cache[app_name] = {
-            "time": datetime.datetime.now().isoformat(),
+            "time": datetime.now().isoformat(),
             "last_title": title
         }
         
@@ -206,3 +210,53 @@ class LogManager:
         if " - " in combined_name:
             return combined_name.rsplit(" - ", 1)[-1].strip()
         return combined_name.strip()
+
+    def _duration_to_seconds(self, duration_str):
+        """Converts H:M:S string (e.g. '0:01:12' or '01:02:03') to total seconds."""
+        if not duration_str or duration_str == "None":
+            return 0
+        try:
+            parts = list(map(int, duration_str.split(':')))
+            if len(parts) == 3: # H:M:S
+                return parts[0] * 3600 + parts[1] * 60 + parts[2]
+            elif len(parts) == 2: # M:S
+                return parts[0] * 60 + parts[1]
+            return 0
+        except (ValueError, TypeError):
+            return 0
+
+    def get_global_summary(self, timeframe="All Time"):
+        """Aggregates all apps for the summary table across all folders."""
+        summary = {} # {app_name: seconds}
+        titles = {}  # {app_name: latest_title}
+        now = datetime.now()
+        
+        start_filter = None
+        if timeframe == "Today":
+            start_filter = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif timeframe == "Last 7 Days":
+            start_filter = now - timedelta(days=7)
+        elif timeframe == "Last 30 Days":
+            start_filter = now - timedelta(days=30)
+
+        for log_file in self.log_dir.rglob("activity_*.csv"):
+            try:
+                with log_file.open(mode='r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f, delimiter=';')
+                    for row in reader:
+                        start_dt = datetime.strptime(row['Timestamp_Start'], '%Y-%m-%d %H:%M:%S')
+                        if start_filter and start_dt < start_filter:
+                            continue
+                        
+                        app = row.get('App')
+                        if not app: continue
+                        
+                        seconds = self._duration_to_seconds(row.get('ActiveTime', '0:0:0'))
+                        summary[app] = summary.get(app, 0) + seconds
+                        # Keep the most recent title found
+                        titles[app] = row.get('Title', '')
+            except Exception: continue
+
+        # Return list of tuples: (app_name, total_seconds, latest_title)
+        sorted_data = sorted(summary.items(), key=lambda x: x[1], reverse=True)
+        return [(app, seconds, titles.get(app, "")) for app, seconds in sorted_data]
