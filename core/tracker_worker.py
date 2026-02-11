@@ -63,9 +63,9 @@ class TrackerWorker(QThread):
             #print(f'new_pid {new_pid}')
             if new_pid:
                 new_wid = self.utils.find_window_by_pid(new_pid)
-                if new_wid:
+                # print(f'new_wid {new_wid}')
+                if new_wid and new_wid[0]:
                     self.target_window_id = str(new_wid[0])
-                    # print(f'new_wid {new_wid}')
                     return True
 
             return False

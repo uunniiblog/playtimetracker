@@ -123,7 +123,7 @@ class StatsTab(QWidget):
             return
 
         total_seconds, daily_data = self.log_manager.get_stats_for_app(app)
-        print(f'total_seconds {total_seconds}')
+        # print(f'total_seconds {total_seconds}')
         
         hours = int(total_seconds // 3600)
         minutes = int((total_seconds % 3600) // 60)

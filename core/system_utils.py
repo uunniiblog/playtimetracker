@@ -193,7 +193,7 @@ class SystemUtils:
             SystemUtils._afk_process = subprocess.Popen(
                 cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
-            print(f"[AFK] Observer started (Threshold: {timeout_seconds}s)")
+            print(f"AFK Observer started at Threshold: {timeout_seconds}s")
             return SystemUtils._afk_process
         except Exception as e:
             print(f"[AFK] Failed to start swayidle: {e}")
